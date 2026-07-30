@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Homelab Services Architecture | Portfolio</title>
+  <meta name="description" content="Self-hosted homelab services host: media stack, game servers, observability dashboard, and utility services — segmented from the InfoSec SOC lab on UniFi + Proxmox." />
+  <meta name="author" content="Homelab Portfolio" />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#0b1220" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Homelab Services Architecture" />
+  <meta property="og:description" content="Gaming, media, monitoring, and utility services on a dedicated homelab host — isolated from the SOC lab behind UniFi UDR7." />
+  <meta property="og:locale" content="en_US" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Homelab Services Architecture" />
+  <meta name="twitter:description" content="Self-hosted media, game servers, and fleet observability — companion to the segmented SOC lab." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --bg-elevated: #ffffff;
+      --ink: #0f172a;
+      --ink-secondary: #334155;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --line-strong: #cbd5e1;
+      --accent: #0369a1;
+      --accent-soft: #e0f2fe;
+      --accent-ink: #0c4a6e;
+      --media: #0f766e;
+      --gaming: #b45309;
+      --observe: #0369a1;
+      --utility: #6d28d9;
+      --edge: #0e7490;
+      --soc: #0f766e;
+      --radius: 10px;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+      --max: 1080px;
+      --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent-ink); }
+    a:hover { text-decoration: underline; }
+
+    .skip {
+      position: absolute;
+      left: -999px;
+      top: 0;
+      background: var(--ink);
+      color: #fff;
+      padding: 0.5rem 1rem;
+      z-index: 100;
+    }
+    .skip:focus { left: 0; }
+
+    .topbar {
+      background: #0b1220;
+      color: #e2e8f0;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .topbar-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-kicker {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+
+    .brand-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .top-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+      list-style: none;
+      font-size: 0.82rem;
+    }
+
+    .top-nav a {
+      color: #cbd5e1;
+      text-decoration: none;
+    }
+
+    .top-nav a:hover { color: #fff; }
+
+    .top-nav a.peer {
+      color: #5eead4;
+      font-weight: 500;
+    }
+
+    .hero {
+      background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
+      color: #e2e8f0;
+      padding: 2.75rem 1.5rem 3rem;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .hero-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #7dd3fc;
+      margin-bottom: 1rem;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #38bdf8;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.75rem, 3.5vw, 2.35rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      color: #f8fafc;
+      max-width: 20ch;
+      margin-bottom: 0.85rem;
+    }
+
+    .hero-lead {
+      font-size: 1.05rem;
+      color: #94a3b8;
+      max-width: 42rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .chip {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .objectives {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
+    }
+
+    @media (max-width: 800px) {
+      .objectives { grid-template-columns: 1fr; }
+    }
+
+    .objective {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid #1e293b;
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+    }
+
+    .objective h2 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 0.35rem;
+    }
+
+    .objective p {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin: 0;
+    }
+
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    section { margin-bottom: 2.75rem; }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head h2 {
+      font-size: 1.2rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .section-head .aside {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .prose {
+      color: var(--ink-secondary);
+      font-size: 0.95rem;
+      max-width: 46rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .skill-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .skill {
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 0.35rem 0.7rem;
+      border-radius: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      color: var(--ink-secondary);
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+    }
+
+    .diagram-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .diagram-card figcaption {
+      padding: 0.85rem 1.15rem;
+      border-top: 1px solid var(--line);
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: #f8fafc;
+    }
+
+    .diagram-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #fafbfc;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1.15rem;
+      margin: 1rem 0 1.25rem;
+      padding: 0.85rem 1rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .swatch {
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .vlan-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    @media (max-width: 760px) {
+      .vlan-grid { grid-template-columns: 1fr; }
+    }
+
+    .vlan {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .vlan-header {
+      padding: 0.8rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .vlan-header h3 {
+      font-size: 0.95rem;
+      font-weight: 650;
+    }
+
+    .vlan-id {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+
+    .vlan-body { padding: 0.9rem 1rem 1.05rem; flex: 1; }
+
+    .vlan-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .svc-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .svc {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      padding: 0.5rem 0.6rem;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-left-width: 3px;
+    }
+
+    .svc-name {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--ink);
+      display: block;
+    }
+
+    .svc-how {
+      font-size: 0.74rem;
+      color: var(--muted);
+      display: block;
+      margin-top: 0.1rem;
+    }
+
+    .deploy {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      white-space: nowrap;
+      padding-top: 0.2rem;
+    }
+
+    .vlan-media .vlan-header { background: #f0fdfa; color: var(--media); }
+    .vlan-media .svc { border-left-color: var(--media); }
+
+    .vlan-gaming .vlan-header { background: #fffbeb; color: var(--gaming); }
+    .vlan-gaming .svc { border-left-color: var(--gaming); }
+
+    .vlan-observe .vlan-header { background: #f0f9ff; color: var(--observe); }
+    .vlan-observe .svc { border-left-color: var(--observe); }
+
+    .vlan-utility .vlan-header { background: #f5f3ff; color: var(--utility); }
+    .vlan-utility .svc { border-left-color: var(--utility); }
+
+    .split-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 700px) {
+      .split-2 { grid-template-columns: 1fr; }
+    }
+
+    .info-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.1rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .info-card .label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--edge);
+      margin-bottom: 0.4rem;
+    }
+
+    .info-card h3 {
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .info-card p {
+      font-size: 0.84rem;
+      color: var(--ink-secondary);
+    }
+
+    .callout {
+      background: var(--accent-soft);
+      border: 1px solid #bae6fd;
+      border-radius: 12px;
+      padding: 1rem 1.15rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .callout h3 {
+      font-size: 0.88rem;
+      color: var(--accent-ink);
+      margin-bottom: 0.4rem;
+    }
+
+    .callout p {
+      font-size: 0.84rem;
+      color: var(--ink-secondary);
+    }
+
+    .callout strong { color: var(--ink); }
+
+    .callout a { color: var(--accent-ink); font-weight: 600; }
+
+    .hosts {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .host {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .host h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .host .meta {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-bottom: 0.7rem;
+    }
+
+    .host ul {
+      list-style: none;
+      font-size: 0.8rem;
+      color: var(--ink-secondary);
+    }
+
+    .host li {
+      padding: 0.22rem 0 0.22rem 0.85rem;
+      position: relative;
+    }
+
+    .host li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55rem;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .flows { display: flex; flex-direction: column; gap: 0.85rem; }
+
+    .flow {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.05rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .flow h3 {
+      font-size: 0.92rem;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-bottom: 0.7rem;
+    }
+
+    .flow-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.45rem;
+      height: 1.45rem;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .pipeline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .node {
+      font-size: 0.76rem;
+      font-weight: 500;
+      padding: 0.38rem 0.6rem;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid var(--line-strong);
+      color: var(--ink);
+    }
+
+    .node.media { border-color: #5eead4; background: #f0fdfa; color: var(--media); }
+    .node.gaming { border-color: #fcd34d; background: #fffbeb; color: var(--gaming); }
+    .node.observe { border-color: #7dd3fc; background: #f0f9ff; color: var(--observe); }
+    .node.utility { border-color: #c4b5fd; background: #f5f3ff; color: var(--utility); }
+    .node.edge { border-color: #67e8f9; background: #ecfeff; color: var(--edge); }
+    .node.soc { border-color: #5eead4; background: #f0fdfa; color: var(--soc); }
+
+    .arrow {
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 0 0.1rem;
+      user-select: none;
+    }
+
+    .flow-note {
+      margin-top: 0.65rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .outcomes {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+    }
+
+    @media (max-width: 700px) {
+      .outcomes { grid-template-columns: 1fr; }
+    }
+
+    .outcome {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.05rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .outcome h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .outcome p {
+      font-size: 0.82rem;
+      color: var(--ink-secondary);
+    }
+
+    .outcome .maps {
+      margin-top: 0.65rem;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--accent-ink);
+    }
+
+    footer {
+      background: #0b1220;
+      color: #94a3b8;
+      padding: 2rem 1.5rem;
+      border-top: 1px solid #1e293b;
+    }
+
+    .footer-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.8rem;
+    }
+
+    footer strong { color: #e2e8f0; font-weight: 600; }
+    footer a { color: #7dd3fc; }
+
+    @media print {
+      .topbar, .skip { display: none; }
+      body { background: #fff; font-size: 11pt; }
+      .hero {
+        background: #fff !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000;
+        padding: 1rem 0;
+      }
+      .hero h1, .hero-lead, .objective h2, .objective p, .eyebrow { color: #000 !important; }
+      .chip { border-color: #999; color: #333; background: #fff; }
+      .objective { border-color: #ccc; background: #fff; }
+      .diagram-card, .vlan, .flow, .host, .info-card, .outcome {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+      a { color: #000; text-decoration: none; }
+      footer { background: #fff; color: #333; border-top: 1px solid #ccc; }
+    }
+  </style>
+</head>
+
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" id="top">
+        <span class="brand-kicker">Homelab Portfolio</span>
+        <span class="brand-name">Services Host Architecture</span>
+      </a>
+      <nav aria-label="Page sections">
+        <ul class="top-nav">
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#placement">Placement</a></li>
+          <li><a href="#services">Services</a></li>
+          <li><a href="#hosts">Hosts</a></li>
+          <li><a href="#flows">Flows</a></li>
+          <li><a href="#outcomes">Outcomes</a></li>
+          <li><a class="peer" href="index.html">SOC Lab →</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Self-hosting · Docker · Observability</p>
+      <h1>Homelab Services Architecture</h1>
+      <p class="hero-lead">
+        A dedicated “for fun” compute host for media, game servers, a fleet dashboard,
+        and utility services — sitting on the same UniFi lab fabric as the InfoSec stack,
+        but isolated so entertainment workloads never share fate with the SOC.
+      </p>
+      <div class="meta-row" aria-label="Host specifications">
+        <span class="chip">Homelab Server (dedicated PC)</span>
+        <span class="chip">Proxmox or bare Docker</span>
+        <span class="chip">Behind UDR7 lab gateway</span>
+        <span class="chip">VLAN-trunked 2.5G switch</span>
+        <span class="chip">VPN-only remote access</span>
+      </div>
+      <div class="objectives">
+        <div class="objective">
+          <h2>Media &amp; storage</h2>
+          <p>Jellyfin library, automation (*arr), and photo backup with durable local volumes.</p>
+        </div>
+        <div class="objective">
+          <h2>Game servers</h2>
+          <p>Containerized or VM-backed multiplayer hosts with controlled ports and friends-only access.</p>
+        </div>
+        <div class="objective">
+          <h2>Fleet visibility</h2>
+          <p>One dashboard for uptime, container health, and links into both this host and the SOC.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main id="main">
+    <section id="overview" aria-labelledby="overview-title">
+      <div class="section-head">
+        <h2 id="overview-title">Project overview</h2>
+        <span class="aside">Skills demonstrated</span>
+      </div>
+      <p class="prose">
+        This page documents the second lab server: everyday self-hosted services that prove
+        systems administration, reverse-proxy / TLS habits, backup discipline, and monitoring —
+        without diluting the
+        <a href="index.html">segmented SOC architecture</a>
+        case study. Same physical network story; different trust and workload profile.
+      </p>
+      <div class="skill-grid" aria-label="Skills">
+        <span class="skill">Docker / Compose</span>
+        <span class="skill">Reverse proxy &amp; TLS</span>
+        <span class="skill">Media stack (Jellyfin / *arr)</span>
+        <span class="skill">Game server hosting</span>
+        <span class="skill">Prometheus · Grafana</span>
+        <span class="skill">Uptime monitoring</span>
+        <span class="skill">Backup &amp; restore</span>
+        <span class="skill">VLAN placement</span>
+        <span class="skill">UniFi VPN access</span>
+        <span class="skill">Resource isolation</span>
+      </div>
+    </section>
+
+    <section id="placement" aria-labelledby="placement-title">
+      <div class="section-head">
+        <h2 id="placement-title">Where this host sits</h2>
+        <span class="aside">Same fabric, separate role</span>
+      </div>
+      <p class="prose">
+        AT&amp;T → Cloud Gateway → 10G core still owns personal clients. The UDR7 owns the
+        2.5G lab switch. The InfoSec Proxmox box runs SOC/NSM/AI; this Homelab Server
+        runs leisure and utility containers on a services-oriented VLAN (demo: VLAN 70).
+      </p>
+
+      <div class="split-2">
+        <div class="info-card">
+          <div class="label">Companion project</div>
+          <h3>InfoSec / SOC host</h3>
+          <p>
+            Detection engineering, purple-team VLANs, malware isolation, GPU AI.
+            See the full design on the
+            <a href="index.html">SOC architecture page</a>.
+          </p>
+        </div>
+        <div class="info-card">
+          <div class="label">This page</div>
+          <h3>Homelab Services host</h3>
+          <p>
+            Media, gaming, dashboards, and “interesting” utilities. Firewalled from
+            Targets / Malware / Attack zones; optional read-only health scrape into monitoring.
+          </p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <h3>Design intent</h3>
+        <p>
+          <strong>Blast-radius control:</strong> a noisy game update or media transcode
+          should not starve Wazuh/ELK. <strong>Clear story for employers:</strong> you
+          operate both a security lab and a production-minded self-hosted platform on one
+          documented topology.
+        </p>
+      </div>
+
+      <figure class="diagram-card">
+        <svg class="diagram-svg" viewBox="0 0 1000 460" role="img" aria-labelledby="hw-title hw-desc">
+          <title id="hw-title">Homelab services placement on the lab network</title>
+          <desc id="hw-desc">
+            Cloud Gateway to UDR7 to 2.5G switch feeding InfoSec Proxmox and Homelab Services host.
+            Homelab host runs media, gaming, observe, and utility service groups.
+          </desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+            </marker>
+          </defs>
+
+          <rect x="340" y="16" width="320" height="44" rx="8" fill="#ecfeff" stroke="#0e7490" stroke-width="1.5"/>
+          <text x="500" y="34" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="#0e7490">UniFi Fiber Cloud Gateway</text>
+          <text x="500" y="50" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">Home edge · Lab-Uplink</text>
+
+          <line x1="500" y1="60" x2="500" y2="82" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="340" y="82" width="320" height="44" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+          <text x="500" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="#0f766e">UniFi UDR7 — Lab Gateway</text>
+          <text x="500" y="116" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">VLAN routing · firewall · Threat Mgmt</text>
+
+          <line x1="500" y1="126" x2="500" y2="148" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="340" y="148" width="320" height="40" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="1.5"/>
+          <text x="500" y="173" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#b45309">2.5G UniFi Switch · Lab VLAN trunk</text>
+
+          <line x1="420" y1="188" x2="250" y2="220" stroke="#94a3b8" stroke-width="1.25" marker-end="url(#arrow)"/>
+          <line x1="580" y1="188" x2="750" y2="220" stroke="#94a3b8" stroke-width="1.25" marker-end="url(#arrow)"/>
+
+          <rect x="110" y="220" width="280" height="56" rx="8" fill="#faf5ff" stroke="#7e22ce" stroke-width="1.5"/>
+          <text x="250" y="242" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#7e22ce">InfoSec Server (Proxmox)</text>
+          <text x="250" y="260" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">SOC · NSM · GPU AI → index.html</text>
+
+          <rect x="610" y="220" width="280" height="56" rx="8" fill="#f0f9ff" stroke="#0369a1" stroke-width="2"/>
+          <text x="750" y="242" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0369a1">Homelab Services Server</text>
+          <text x="750" y="260" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">This page · VLAN 70 (demo)</text>
+
+          <line x1="750" y1="276" x2="750" y2="300" stroke="#64748b" stroke-width="1.5"/>
+          <line x1="520" y1="300" x2="960" y2="300" stroke="#cbd5e1" stroke-width="1.5"/>
+
+          <rect x="470" y="318" width="130" height="72" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+          <text x="535" y="348" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Media</text>
+          <text x="535" y="366" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">Jellyfin · *arr</text>
+
+          <rect x="620" y="318" width="130" height="72" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="1.5"/>
+          <text x="685" y="348" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Gaming</text>
+          <text x="685" y="366" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">Dedicated servers</text>
+
+          <rect x="770" y="318" width="130" height="72" rx="8" fill="#f0f9ff" stroke="#0369a1" stroke-width="1.5"/>
+          <text x="835" y="348" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Observe</text>
+          <text x="835" y="366" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">Dash · metrics</text>
+
+          <rect x="920" y="318" width="60" height="72" rx="8" fill="#f5f3ff" stroke="#6d28d9" stroke-width="1.5"/>
+          <text x="950" y="348" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Util</text>
+          <text x="950" y="366" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#64748b">+</text>
+
+          <line x1="535" y1="300" x2="535" y2="318" stroke="#94a3b8" stroke-width="1.25"/>
+          <line x1="685" y1="300" x2="685" y2="318" stroke="#94a3b8" stroke-width="1.25"/>
+          <line x1="835" y1="300" x2="835" y2="318" stroke="#94a3b8" stroke-width="1.25"/>
+          <line x1="950" y1="300" x2="950" y2="318" stroke="#94a3b8" stroke-width="1.25"/>
+
+          <text x="500" y="430" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#64748b">
+            Demo layout — swap VLAN IDs / hypervisor details to match your as-built config
+          </text>
+        </svg>
+        <figcaption>
+          Highlighted path: UDR7 → Homelab Services Server. InfoSec Proxmox remains a peer on the
+          same switch with stricter east–west policy documented on the SOC page.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="services" aria-labelledby="services-title">
+      <div class="section-head">
+        <h2 id="services-title">Service groups</h2>
+        <span class="aside">Demo catalog — customize freely</span>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><span class="swatch" style="background:var(--media)"></span> Media</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--gaming)"></span> Gaming</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--observe)"></span> Observability</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--utility)"></span> Utility</div>
+      </div>
+
+      <div class="vlan-grid">
+        <article class="vlan vlan-media">
+          <div class="vlan-header">
+            <h3>Media</h3>
+            <span class="vlan-id">Library · automation</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Personal media and photos on local disks — no public exposure.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Jellyfin</span><span class="svc-how">Streaming UI for movies, shows, music</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">*arr stack</span><span class="svc-how">Sonarr / Radarr / Prowlarr request automation</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Immich</span><span class="svc-how">Self-hosted photo backup &amp; timeline</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">qBittorrent</span><span class="svc-how">Downloads constrained to media VLAN / VPN</span></div><span class="deploy">Docker</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-gaming">
+          <div class="vlan-header">
+            <h3>Gaming</h3>
+            <span class="vlan-id">Friends-only servers</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Dedicated game processes with explicit port allows via UDR7 / Cloud Gateway.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Minecraft (Paper)</span><span class="svc-how">Surivial / creative world for friends</span></div><span class="deploy">Docker / VM</span></li>
+              <li class="svc"><div><span class="svc-name">Valheim / similar</span><span class="svc-how">SteamCMD dedicated server as needed</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Pterodactyl (optional)</span><span class="svc-how">Panel for start/stop, backups, player slots</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Access path</span><span class="svc-how">UniFi VPN preferred; rare port-forward only if required</span></div><span class="deploy">Policy</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-observe">
+          <div class="vlan-header">
+            <h3>Observability</h3>
+            <span class="vlan-id">Fleet dashboard</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Single pane for “is everything up?” across homelab + optional SOC health links.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Homepage / Glance</span><span class="svc-how">Service bookmarks, status widgets, docs links</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Uptime Kuma</span><span class="svc-how">HTTP / TCP / ping checks + alerts</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Prometheus + Grafana</span><span class="svc-how">Host/container metrics, disk, GPU if present</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Node / cAdvisor exporters</span><span class="svc-how">Scrape this host; optional read-only probes of peers</span></div><span class="deploy">Docker</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-utility">
+          <div class="vlan-header">
+            <h3>Utility &amp; “interesting”</h3>
+            <span class="vlan-id">Platform glue</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Small services that make the rest pleasant to operate.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Traefik or Caddy</span><span class="svc-how">Internal HTTPS names via local DNS / VPN</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Portainer</span><span class="svc-how">Container lifecycle UI on this host</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Vaultwarden</span><span class="svc-how">Password vault (VPN-only)</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Restic / Borg</span><span class="svc-how">Scheduled backups of configs + media metadata</span></div><span class="deploy">Cron / Docker</span></li>
+            </ul>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="hosts" aria-labelledby="hosts-title">
+      <div class="section-head">
+        <h2 id="hosts-title">Compute &amp; access</h2>
+        <span class="aside">Demo resource sketch</span>
+      </div>
+      <div class="hosts">
+        <div class="host">
+          <h3>Homelab Services PC</h3>
+          <p class="meta">Dedicated box · lab switch · VLAN 70</p>
+          <ul>
+            <li>Docker Compose stacks by service group</li>
+            <li>Large disk pool for media libraries</li>
+            <li>Optional lightweight Proxmox if VMs needed</li>
+            <li>No Targets / Malware VLANs on this host</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Edge path</h3>
+          <p class="meta">Cloud Gateway + UDR7</p>
+          <ul>
+            <li>Personal clients stay on 10G / Cloud Gateway</li>
+            <li>Lab services only via UDR7 firewall</li>
+            <li>Remote = UniFi VPN, then internal DNS</li>
+            <li>Game ports: explicit, logged, least privilege</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Peer: InfoSec Proxmox</h3>
+          <p class="meta">SOC · NSM · GPU AI</p>
+          <ul>
+            <li>Documented on SOC page</li>
+            <li>East–west: deny by default from VLAN 70</li>
+            <li>Optional: Uptime Kuma checks public-facing UIs via VPN path only</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Clients</h3>
+          <p class="meta">Trusted personal systems</p>
+          <ul>
+            <li>Streaming &amp; dashboard over LAN / VPN</li>
+            <li>No direct reach into Malware / Attack</li>
+            <li>Bookmark hub = Homepage dashboard</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="flows" aria-labelledby="flows-title">
+      <div class="section-head">
+        <h2 id="flows-title">Operational flows</h2>
+        <span class="aside">How day-to-day use works</span>
+      </div>
+      <div class="flows">
+        <article class="flow">
+          <h3><span class="flow-num">1</span> Watch something at home</h3>
+          <div class="pipeline">
+            <span class="node edge">Trusted client</span><span class="arrow">→</span>
+            <span class="node edge">Cloud Gateway / LAN</span><span class="arrow">→</span>
+            <span class="node edge">UDR7</span><span class="arrow">→</span>
+            <span class="node media">Jellyfin</span>
+          </div>
+          <p class="flow-note">Internal hostname via reverse proxy. No WAN publish of the media stack.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">2</span> Friends join a game server</h3>
+          <div class="pipeline">
+            <span class="node gaming">Friend client</span><span class="arrow">→</span>
+            <span class="node edge">VPN or allowed UDP/TCP</span><span class="arrow">→</span>
+            <span class="node edge">UDR7 DNAT / firewall</span><span class="arrow">→</span>
+            <span class="node gaming">Game container</span>
+          </div>
+          <p class="flow-note">Prefer VPN invite links. If a port must be open, scope it to that service only and monitor with Uptime Kuma + UniFi logs.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">3</span> Fleet dashboard</h3>
+          <div class="pipeline">
+            <span class="node observe">Exporters</span><span class="arrow">→</span>
+            <span class="node observe">Prometheus</span><span class="arrow">→</span>
+            <span class="node observe">Grafana</span>
+          </div>
+          <div class="pipeline" style="margin-top:0.45rem">
+            <span class="node observe">Uptime Kuma</span><span class="arrow">→</span>
+            <span class="node observe">Homepage widgets</span><span class="arrow">+</span>
+            <span class="node soc">Optional SOC UI links</span>
+          </div>
+          <p class="flow-note">One place to open Jellyfin, game panels, Grafana, and deep-links into Wazuh/Kibana when on VPN.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">4</span> Backup discipline</h3>
+          <div class="pipeline">
+            <span class="node utility">Compose + configs</span><span class="arrow">→</span>
+            <span class="node utility">Restic / Borg</span><span class="arrow">→</span>
+            <span class="node utility">Local + offsite target</span>
+          </div>
+          <p class="flow-note">Media blobs may be large; prioritize configs, databases, Immich metadata, and game world saves.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="outcomes" aria-labelledby="outcomes-title">
+      <div class="section-head">
+        <h2 id="outcomes-title">Portfolio outcomes</h2>
+        <span class="aside">What this page proves</span>
+      </div>
+      <div class="outcomes">
+        <article class="outcome">
+          <h3>Platform thinking</h3>
+          <p>Separate security lab compute from leisure workloads while sharing one documented network design.</p>
+          <p class="maps">Maps to: Systems Admin · Platform / SRE fundamentals</p>
+        </article>
+        <article class="outcome">
+          <h3>Self-hosted media &amp; games</h3>
+          <p>Compose-based services with access control, reverse proxy, and intentional exposure decisions.</p>
+          <p class="maps">Maps to: Linux · Containers · Network policy</p>
+        </article>
+        <article class="outcome">
+          <h3>Observability habit</h3>
+          <p>Uptime checks and metrics so “homelab” looks like an operated environment, not a pile of containers.</p>
+          <p class="maps">Maps to: Monitoring · On-call mindset</p>
+        </article>
+        <article class="outcome">
+          <h3>Paired with SOC depth</h3>
+          <p>Employers can open this page for breadth, then the SOC page for detection, VLAN trust, and purple-team design.</p>
+          <p class="maps"><a href="index.html">Open SOC architecture →</a></p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <strong>Homelab Portfolio — Services Host Architecture</strong><br />
+        Companion page to the <a href="index.html">Cybersecurity Lab Architecture</a>. Demo catalog — swap in your real stack.
+      </div>
+      <div>
+        Path: Cloud Gateway → UDR7 → Homelab Services · Groups: Media · Gaming · Observe · Utility
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
