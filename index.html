@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Segmented Homelab SOC Architecture | InfoSec Portfolio</title>
+  <meta name="description" content="As-built cybersecurity homelab: a segmented Proxmox InfoSec host with Wazuh, ELK, Zeek, Suricata, Snort, OpenVAS, DefectDojo, an isolated REMnux/FlareVM sandbox, and a GPU-accelerated Frigate camera NVR." />
+  <meta name="author" content="Jonah Caro" />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#0b1220" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Segmented Homelab SOC Architecture" />
+  <meta property="og:description" content="Segmented Proxmox SOC: Wazuh, ELK, Zeek/Suricata/Snort via Proxmox tc mirror, OpenVAS + DefectDojo, isolated malware sandbox." />
+  <meta property="og:locale" content="en_US" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Segmented Homelab SOC Architecture" />
+  <meta name="twitter:description" content="VLAN-segmented SOC lab: host + network detection, vulnerability management, and malware analysis." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --bg-elevated: #ffffff;
+      --ink: #0f172a;
+      --ink-secondary: #334155;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --line-strong: #cbd5e1;
+      --accent: #0f766e;
+      --accent-soft: #ccfbf1;
+      --accent-ink: #115e59;
+      --mgmt: #0369a1;
+      --services: #0f766e;
+      --dot: #b45309;
+      --targets: #b91c1c;
+      --malware: #7e22ce;
+      --attack: #c2410c;
+      --home: #4f46e5;
+      --cams: #be185d;
+      --edge: #0e7490;
+      --radius: 10px;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+      --max: 1080px;
+      --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent-ink); }
+    a:hover { text-decoration: underline; }
+
+    .skip {
+      position: absolute;
+      left: -999px;
+      top: 0;
+      background: var(--ink);
+      color: #fff;
+      padding: 0.5rem 1rem;
+      z-index: 100;
+    }
+    .skip:focus { left: 0; }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: #f1f5f9;
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      color: var(--ink);
+    }
+
+    /* —— Site chrome —— */
+    .topbar {
+      background: #0b1220;
+      color: #e2e8f0;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .topbar-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-kicker {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+
+    .brand-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .top-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+      list-style: none;
+      font-size: 0.82rem;
+    }
+
+    .top-nav a {
+      color: #cbd5e1;
+      text-decoration: none;
+    }
+
+    .top-nav a:hover { color: #fff; }
+
+    .top-nav a.peer {
+      color: #7dd3fc;
+      font-weight: 500;
+    }
+
+    /* —— Hero —— */
+    .hero {
+      background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
+      color: #e2e8f0;
+      padding: 2.75rem 1.5rem 3rem;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .hero-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #5eead4;
+      margin-bottom: 1rem;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2dd4bf;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.75rem, 3.5vw, 2.35rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      color: #f8fafc;
+      max-width: 20ch;
+      margin-bottom: 0.85rem;
+    }
+
+    .hero-lead {
+      font-size: 1.05rem;
+      color: #94a3b8;
+      max-width: 42rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .chip {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .objectives {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
+    }
+
+    @media (max-width: 800px) {
+      .objectives { grid-template-columns: 1fr; }
+    }
+
+    .objective {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid #1e293b;
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+    }
+
+    .objective h2 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 0.35rem;
+    }
+
+    .objective p {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin: 0;
+    }
+
+    /* —— Main —— */
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    section { margin-bottom: 2.75rem; }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head h2 {
+      font-size: 1.2rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .section-head .aside {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .prose {
+      color: var(--ink-secondary);
+      font-size: 0.95rem;
+      max-width: 46rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .skill-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .skill {
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 0.35rem 0.7rem;
+      border-radius: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      color: var(--ink-secondary);
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+    }
+
+    /* Diagrams */
+    .diagram-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+
+    .diagram-card figcaption {
+      padding: 0.85rem 1.15rem;
+      border-top: 1px solid var(--line);
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: #f8fafc;
+    }
+
+    .diagram-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #fafbfc;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1.15rem;
+      margin: 1rem 0 1.25rem;
+      padding: 0.85rem 1rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .swatch {
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* VLAN cards */
+    .vlan-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    @media (max-width: 760px) {
+      .vlan-grid { grid-template-columns: 1fr; }
+    }
+
+    .vlan {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .vlan-header {
+      padding: 0.8rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .vlan-header h3 {
+      font-size: 0.95rem;
+      font-weight: 650;
+    }
+
+    .vlan-id {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .vlan-body { padding: 0.9rem 1rem 1.05rem; flex: 1; }
+
+    .vlan-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .svc-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .svc {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      padding: 0.5rem 0.6rem;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-left-width: 3px;
+    }
+
+    .svc-name {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--ink);
+      display: block;
+    }
+
+    .svc-how {
+      font-size: 0.74rem;
+      color: var(--muted);
+      display: block;
+      margin-top: 0.1rem;
+    }
+
+    .deploy {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      white-space: nowrap;
+      padding-top: 0.2rem;
+    }
+
+    .vlan-mgmt .vlan-header { background: #f0f9ff; color: var(--mgmt); }
+    .vlan-mgmt .svc { border-left-color: var(--mgmt); }
+
+    .vlan-services .vlan-header { background: #f0fdfa; color: var(--services); }
+    .vlan-services .svc { border-left-color: var(--services); }
+
+    .vlan-dot .vlan-header { background: #fffbeb; color: var(--dot); }
+    .vlan-dot .svc { border-left-color: var(--dot); }
+
+    .vlan-targets .vlan-header { background: #fef2f2; color: var(--targets); }
+    .vlan-targets .svc { border-left-color: var(--targets); }
+
+    .vlan-malware .vlan-header { background: #faf5ff; color: var(--malware); }
+    .vlan-malware .svc { border-left-color: var(--malware); }
+
+    .vlan-attack .vlan-header { background: #fff7ed; color: var(--attack); }
+    .vlan-attack .svc { border-left-color: var(--attack); }
+
+    .vlan-cams .vlan-header { background: #fdf2f8; color: var(--cams); }
+    .vlan-cams .svc { border-left-color: var(--cams); }
+
+    /* Split cards */
+    .split-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 700px) {
+      .split-2 { grid-template-columns: 1fr; }
+    }
+
+    .info-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.1rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .info-card .label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--edge);
+      margin-bottom: 0.4rem;
+    }
+
+    .info-card h3 {
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .info-card p {
+      font-size: 0.84rem;
+      color: var(--ink-secondary);
+    }
+
+    .callout {
+      background: var(--accent-soft);
+      border: 1px solid #99f6e4;
+      border-radius: 12px;
+      padding: 1rem 1.15rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .callout h3 {
+      font-size: 0.88rem;
+      color: var(--accent-ink);
+      margin-bottom: 0.4rem;
+    }
+
+    .callout p {
+      font-size: 0.84rem;
+      color: var(--ink-secondary);
+    }
+
+    .callout p + p { margin-top: 0.45rem; }
+
+    .callout strong { color: var(--ink); }
+
+    /* Hosts */
+    .hosts {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .host {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .host h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .host .meta {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-bottom: 0.7rem;
+    }
+
+    .host ul {
+      list-style: none;
+      font-size: 0.8rem;
+      color: var(--ink-secondary);
+    }
+
+    .host li {
+      padding: 0.22rem 0 0.22rem 0.85rem;
+      position: relative;
+    }
+
+    .host li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55rem;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* Flows */
+    .flows { display: flex; flex-direction: column; gap: 0.85rem; }
+
+    .flow {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.05rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .flow h3 {
+      font-size: 0.92rem;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-bottom: 0.7rem;
+    }
+
+    .flow-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.45rem;
+      height: 1.45rem;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .pipeline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .node {
+      font-size: 0.76rem;
+      font-weight: 500;
+      padding: 0.38rem 0.6rem;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid var(--line-strong);
+      color: var(--ink);
+    }
+
+    .node.mgmt { border-color: #7dd3fc; background: #f0f9ff; color: var(--mgmt); }
+    .node.services { border-color: #5eead4; background: #f0fdfa; color: var(--services); }
+    .node.dot { border-color: #fcd34d; background: #fffbeb; color: var(--dot); }
+    .node.targets { border-color: #fca5a5; background: #fef2f2; color: var(--targets); }
+    .node.malware { border-color: #d8b4fe; background: #faf5ff; color: var(--malware); }
+    .node.attack { border-color: #fdba74; background: #fff7ed; color: var(--attack); }
+    .node.home { border-color: #a5b4fc; background: #eef2ff; color: var(--home); }
+    .node.cams { border-color: #f9a8d4; background: #fdf2f8; color: var(--cams); }
+    .node.edge { border-color: #67e8f9; background: #ecfeff; color: var(--edge); }
+
+    .arrow {
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 0 0.1rem;
+      user-select: none;
+    }
+
+    .flow-note {
+      margin-top: 0.65rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* Tables */
+    .matrix-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--bg-elevated);
+      box-shadow: var(--shadow);
+      margin-bottom: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      min-width: 680px;
+    }
+
+    th, td {
+      padding: 0.6rem 0.7rem;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    th {
+      background: #f8fafc;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    td { color: var(--ink-secondary); }
+    td.mono, .mono { font-family: var(--mono); font-size: 0.74rem; }
+    td.num { font-family: var(--mono); font-weight: 600; color: var(--ink); white-space: nowrap; }
+
+    .yes { color: var(--services); font-weight: 650; }
+    .no { color: #94a3b8; font-weight: 600; }
+    .limited { color: var(--dot); font-weight: 600; }
+
+    .tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.12rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid var(--line-strong);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .tag.soc { border-color: #5eead4; color: var(--services); background: #f0fdfa; }
+    .tag.homelab { border-color: #a5b4fc; color: var(--home); background: #eef2ff; }
+    .tag.shared { border-color: #7dd3fc; color: var(--mgmt); background: #f0f9ff; }
+
+    .row-dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 0.45rem; vertical-align: 0; }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 800px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .stat {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.95rem 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .stat .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--accent-ink);
+      line-height: 1.1;
+    }
+
+    .stat .label {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    /* Outcomes */
+    .outcomes {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+    }
+
+    @media (max-width: 700px) {
+      .outcomes { grid-template-columns: 1fr; }
+    }
+
+    .outcome {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.05rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .outcome h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .outcome p {
+      font-size: 0.82rem;
+      color: var(--ink-secondary);
+    }
+
+    .outcome .maps {
+      margin-top: 0.65rem;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--accent-ink);
+    }
+
+    .status {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      margin-left: 0.35rem;
+      vertical-align: 0.1rem;
+    }
+
+    .status.done { background: #dcfce7; color: #166534; }
+    .status.wip { background: #fef3c7; color: #92400e; }
+
+    /* Footer */
+    footer {
+      background: #0b1220;
+      color: #94a3b8;
+      padding: 2rem 1.5rem;
+      border-top: 1px solid #1e293b;
+    }
+
+    .footer-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.8rem;
+    }
+
+    footer strong { color: #e2e8f0; font-weight: 600; }
+    footer a { color: #7dd3fc; }
+
+    @media print {
+      .topbar, .skip { display: none; }
+      body { background: #fff; font-size: 11pt; }
+      .hero {
+        background: #fff !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000;
+        padding: 1rem 0;
+      }
+      .hero h1, .hero-lead, .objective h2, .objective p, .eyebrow { color: #000 !important; }
+      .chip { border-color: #999; color: #333; background: #fff; }
+      .objective { border-color: #ccc; background: #fff; }
+      .diagram-card, .vlan, .flow, .host, .info-card, .outcome, .matrix-wrap, .stat {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+      a { color: #000; text-decoration: none; }
+      footer { background: #fff; color: #333; border-top: 1px solid #ccc; }
+    }
+  </style>
+</head>
+
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" id="top">
+        <span class="brand-kicker">Homelab Portfolio</span>
+        <span class="brand-name">Cybersecurity Lab Architecture</span>
+      </a>
+      <nav aria-label="Page sections">
+        <ul class="top-nav">
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#vlans">Segments</a></li>
+          <li><a href="#detection">Detection stack</a></li>
+          <li><a href="#cameras">Camera NVR</a></li>
+          <li><a href="#hosts">Hosts</a></li>
+          <li><a href="#flows">Data flows</a></li>
+          <li><a href="#firewall">Firewall</a></li>
+          <li><a href="#results">Results</a></li>
+          <li><a class="peer" href="network.html">Network &amp; hardware →</a></li>
+          <li><a class="peer" href="homelab.html">Homelab services →</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Proxmox · Wazuh · ELK · NSM</p>
+      <h1>Segmented Homelab SOC Architecture</h1>
+      <p class="hero-lead">
+        A working security operations lab. A dedicated InfoSec Proxmox host runs the SIEM, network
+        sensors, vulnerable targets, an air-gapped malware sandbox, and a GPU-accelerated Frigate NVR
+        for the house cameras, each on its own firewalled VLAN. Attacks from Kali are detected by both
+        host agents and a mirrored-traffic sensor, then escalated to my ops dashboard on the homelab host.
+      </p>
+      <div class="meta-row" aria-label="Lab specifications">
+        <span class="chip">Hypervisor: Proxmox VE</span>
+        <span class="chip">SOC VLANs 2 · 4 · 5 · 6 · 74</span>
+        <span class="chip">Zone firewall</span>
+        <span class="chip">Sensor: Proxmox tc mirror</span>
+        <span class="chip">NVR GPU passthrough</span>
+      </div>
+      <div class="objectives">
+        <div class="objective">
+          <h2>Detection engineering</h2>
+          <p>Wazuh host telemetry correlated with Zeek, Suricata, and Snort in ELK. 9 custom Wazuh rules mapped to MITRE ATT&amp;CK.</p>
+        </div>
+        <div class="objective">
+          <h2>Vulnerability management</h2>
+          <p>Authenticated OpenVAS and OWASP ZAP scans, DefectDojo tracking, and 6 documented remediation change records.</p>
+        </div>
+        <div class="objective">
+          <h2>Malware analysis</h2>
+          <p>REMnux and FlareVM on a no-route VLAN with simulated internet (INetSim) on REMnux.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main id="main">
+    <section id="overview" aria-labelledby="overview-title">
+      <div class="section-head">
+        <h2 id="overview-title">Project overview</h2>
+        <span class="aside">Skills demonstrated</span>
+      </div>
+      <p class="prose">
+        Everything on this page is deployed and in use. The lab follows enterprise patterns:
+        the SIEM and analytics live on an isolated services VLAN, attack and target networks are
+        separated, network traffic is mirrored to a passive sensor, and malware never touches a routed
+        network. The underlying network and hardware are on the <a href="network.html">network &amp;
+        hardware page</a>, and the second Proxmox host is on the <a href="homelab.html">homelab services page</a>.
+      </p>
+      <div class="skill-grid" aria-label="Skills">
+        <span class="skill">Zone firewall</span>
+        <span class="skill">Security zone segmentation</span>
+        <span class="skill">Proxmox VE</span>
+        <span class="skill">Wazuh SIEM + custom rules</span>
+        <span class="skill">Elastic Stack (ELK)</span>
+        <span class="skill">Zeek</span>
+        <span class="skill">Suricata</span>
+        <span class="skill">Snort</span>
+        <span class="skill">Filebeat / Logstash pipelines</span>
+        <span class="skill">Linux tc traffic mirroring</span>
+        <span class="skill">OpenVAS / Greenbone</span>
+        <span class="skill">OWASP ZAP</span>
+        <span class="skill">DefectDojo</span>
+        <span class="skill">MITRE ATT&amp;CK mapping</span>
+        <span class="skill">REMnux · FlareVM · INetSim</span>
+        <span class="skill">Frigate NVR · face recognition</span>
+        <span class="skill">Proxmox GPU passthrough (VFIO)</span>
+        <span class="skill">MQTT event pipelines</span>
+        <span class="skill">Docker / Compose</span>
+        <span class="skill">Webhook alert automation</span>
+      </div>
+    </section>
+
+    <section id="vlans" aria-labelledby="vlans-title">
+      <div class="section-head">
+        <h2 id="vlans-title">Security segments</h2>
+        <span class="aside">InfoSec Proxmox VLANs</span>
+      </div>
+      <p class="prose">
+        The SOC is split into five VLANs by role: tooling, targets, malware, attack, and cameras. Each one has its own
+        firewall policy on the lab gateway, so a compromised target or a detonated sample stays contained. The full VLAN plan
+        and the hardware are on the <a href="network.html">network &amp; hardware page</a>.
+      </p>
+
+      <div class="legend">
+        <div class="legend-item"><span class="swatch" style="background:var(--services)"></span> 2 Sec Services</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--targets)"></span> 4 Targets</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--malware)"></span> 5 Malware</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--attack)"></span> 6 Attack</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--cams)"></span> 74 Security Cameras</div>
+      </div>
+
+      <div class="vlan-grid">
+        <article class="vlan vlan-services">
+          <div class="vlan-header">
+            <h3>Sec Services</h3>
+            <span class="vlan-id">VLAN 2</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">One Docker VM runs the SOC tooling behind a Traefik reverse proxy.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Wazuh (single-node)</span><span class="svc-how">Manager, indexer, dashboard — host SIEM, custom rules</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">ELK</span><span class="svc-how">Logstash → Elasticsearch → Kibana for NSM data</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">OpenVAS / Greenbone</span><span class="svc-how">Authenticated scans of the Targets VLAN</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">DefectDojo</span><span class="svc-how">Finding triage and remediation tracking</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Traefik · Portainer · Gitea</span><span class="svc-how">TLS reverse proxy, container UI, private repo for SOC compose files</span></div><span class="deploy">Docker</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-targets">
+          <div class="vlan-header">
+            <h3>Targets</h3>
+            <span class="vlan-id">VLAN 4</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Intentionally vulnerable hosts for purple-team scenarios and vulnerability scanning. Snapshotted clean baselines.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">DVWA</span><span class="svc-how">Web exploitation target</span></div><span class="deploy">VM</span></li>
+              <li class="svc"><div><span class="svc-name">Metasploitable</span><span class="svc-how">Linux target: vulnerable FTP, SSH, and privilege-escalation paths</span></div><span class="deploy">VM</span></li>
+              <li class="svc"><div><span class="svc-name">Wazuh agents + auditd</span><span class="svc-how">Both targets report to the Wazuh manager</span></div><span class="deploy">Agent</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-malware">
+          <div class="vlan-header">
+            <h3>Malware sandbox</h3>
+            <span class="vlan-id">VLAN 5</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">No default route, no WAN, no path to any other VLAN. Fake internet is served from inside the VLAN.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">REMnux</span><span class="svc-how">Static analysis; INetSim + dnsmasq fake DNS/HTTP</span></div><span class="deploy">VM</span></li>
+              <li class="svc"><div><span class="svc-name">FlareVM</span><span class="svc-how">Windows dynamic analysis; DNS and gateway point at REMnux</span></div><span class="deploy">VM</span></li>
+              <li class="svc"><div><span class="svc-name">Sample intake</span><span class="svc-how">theZoo samples copied in from the admin PC via Mgmt break-glass</span></div><span class="deploy">Manual</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-attack">
+          <div class="vlan-header">
+            <h3>Attack</h3>
+            <span class="vlan-id">VLAN 6</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Offensive tooling plus the passive network sensor that watches Attack ↔ Targets traffic.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Kali Linux</span><span class="svc-how">VirtualBox on the admin PC, bridged to a dedicated 2nd NIC</span></div><span class="deploy">VM</span></li>
+              <li class="svc"><div><span class="svc-name">NSM sensor</span><span class="svc-how">Zeek, Suricata, Snort on a dedicated mirrored capture interface</span></div><span class="deploy">VM</span></li>
+              <li class="svc"><div><span class="svc-name">Filebeat</span><span class="svc-how">Ships Zeek logs and IDS alerts to Logstash on the SOC Docker VM</span></div><span class="deploy">Agent</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-cams">
+          <div class="vlan-header">
+            <h3>Security Cameras</h3>
+            <span class="vlan-id">VLAN 74</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Software NVR for the house cameras, hosted on the InfoSec Proxmox host. Cameras join a dedicated SSID and only talk to the NVR VM.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Camera NVR VM</span><span class="svc-how">Linux VM with a GPU passed through (VFIO)</span></div><span class="deploy">VM</span></li>
+              <li class="svc"><div><span class="svc-name">Wi-Fi cameras</span><span class="svc-how">Battery-powered, on a dedicated SSID, internet denied</span></div><span class="deploy">Camera</span></li>
+              <li class="svc"><div><span class="svc-name">Protocol bridge</span><span class="svc-how">Wakes the cameras and converts their proprietary stream to RTSP</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Frigate + go2rtc · Mosquitto</span><span class="svc-how">GPU person detection, face recognition, live view; events over MQTT</span></div><span class="deploy">Docker</span></li>
+            </ul>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="detection" aria-labelledby="detection-title">
+      <div class="section-head">
+        <h2 id="detection-title">Detection architecture</h2>
+        <span class="aside">Host + network correlation</span>
+      </div>
+
+      <figure class="diagram-card">
+        <svg class="diagram-svg" viewBox="0 0 1000 440" role="img" aria-labelledby="det-title det-desc">
+          <title id="det-title">Detection pipeline</title>
+          <desc id="det-desc">
+            Kali on VLAN 6 attacks DVWA and Metasploitable on VLAN 4. Proxmox mirrors target traffic to the NSM sensor,
+            which ships Zeek, Suricata, and Snort data via Filebeat to Logstash on the SOC Docker VM. Target Wazuh agents report to the
+            Wazuh manager. OpenVAS scans the targets. High-severity Wazuh alerts go to the ops dashboard and then to Dot AI.
+            The malware VLAN is isolated.
+          </desc>
+          <defs>
+            <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+            </marker>
+          </defs>
+
+          <rect x="30" y="24" width="260" height="66" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+          <text x="160" y="47" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#c2410c">VLAN 6 · Attack</text>
+          <text x="160" y="66" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="#0f172a">Kali Linux</text>
+          <text x="160" y="81" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">nmap · Metasploit · Hydra · DVWA payloads</text>
+
+          <line x1="160" y1="90" x2="160" y2="166" stroke="#c2410c" stroke-width="1.5" marker-end="url(#arrow2)"/>
+          <text x="170" y="132" font-family="IBM Plex Mono, monospace" font-size="10" fill="#c2410c">attacks</text>
+
+          <rect x="30" y="166" width="260" height="96" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="1.5"/>
+          <text x="160" y="189" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#b91c1c">VLAN 4 · Targets</text>
+          <text x="160" y="209" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">DVWA</text>
+          <text x="160" y="227" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Metasploitable</text>
+          <text x="160" y="248" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">Wazuh agent · auditd</text>
+
+          <line x1="290" y1="205" x2="368" y2="205" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow2)"/>
+          <text x="329" y="196" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">tc mirror</text>
+
+          <rect x="370" y="166" width="260" height="96" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+          <text x="500" y="189" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#c2410c">VLAN 6 · NSM sensor VM</text>
+          <text x="500" y="209" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Zeek · Suricata · Snort</text>
+          <text x="500" y="227" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">Dedicated capture interface</text>
+          <text x="500" y="248" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">Filebeat shipper</text>
+
+          <line x1="630" y1="205" x2="698" y2="205" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow2)"/>
+          <text x="664" y="196" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">Beats</text>
+
+          <rect x="700" y="24" width="270" height="276" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="2"/>
+          <text x="835" y="47" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#0f766e">VLAN 2 · SOC Docker VM</text>
+          <rect x="716" y="60" width="238" height="52" rx="6" fill="#fff" stroke="#99f6e4"/>
+          <text x="835" y="81" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Wazuh manager · indexer</text>
+          <text x="835" y="98" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">dashboard · 9 custom rules</text>
+          <rect x="716" y="120" width="238" height="52" rx="6" fill="#fff" stroke="#99f6e4"/>
+          <text x="835" y="141" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">OpenVAS · DefectDojo</text>
+          <text x="835" y="158" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">scan → triage → remediate</text>
+          <rect x="716" y="180" width="238" height="52" rx="6" fill="#fff" stroke="#99f6e4"/>
+          <text x="835" y="201" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Logstash → Elasticsearch</text>
+          <text x="835" y="218" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">Kibana dashboards</text>
+          <text x="835" y="260" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">Traefik · Portainer · Gitea</text>
+          <text x="835" y="278" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">TLS reverse proxy</text>
+
+          <path d="M 290 248 C 360 320, 640 320, 714 100" fill="none" stroke="#0f766e" stroke-width="1.4" marker-end="url(#arrow2)"/>
+          <text x="500" y="312" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#0f766e">Wazuh agents → manager</text>
+
+          <path d="M 714 146 C 560 120, 360 120, 292 178" fill="none" stroke="#0f766e" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrow2)"/>
+          <text x="500" y="122" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#0f766e">authenticated scans</text>
+
+          <rect x="30" y="350" width="290" height="70" rx="8" fill="#faf5ff" stroke="#7e22ce" stroke-width="1.5" stroke-dasharray="6 4"/>
+          <text x="175" y="373" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#7e22ce">VLAN 5 · Malware · isolated</text>
+          <text x="175" y="392" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">REMnux + FlareVM</text>
+          <text x="175" y="409" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">INetSim fake internet · no route out</text>
+
+          <rect x="420" y="350" width="250" height="70" rx="8" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.5"/>
+          <text x="545" y="373" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#4f46e5">VLAN 70 · ops dashboard</text>
+          <text x="545" y="392" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Alert inbox + ntfy</text>
+          <text x="545" y="409" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">VM power control via Proxmox API</text>
+
+          <line x1="800" y1="300" x2="672" y2="360" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow2)"/>
+          <text x="760" y="340" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">HTTPS webhook</text>
+
+          <rect x="730" y="350" width="240" height="70" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="1.5"/>
+          <text x="850" y="373" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#b45309">Homelab · VLAN 3 · Dot AI PC</text>
+          <text x="850" y="392" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Dot AI voice assistant</text>
+          <text x="850" y="409" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#64748b">Speaks high-severity alerts</text>
+
+          <line x1="670" y1="400" x2="728" y2="400" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow2)"/>
+          <text x="699" y="415" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#64748b">push</text>
+        </svg>
+        <figcaption>
+          Network evidence (Zeek, Suricata, Snort) lands in ELK; host evidence lands in Wazuh. High-severity Wazuh alerts
+          are pushed out of the SOC to the ops dashboard on the homelab host, which relays them to the Dot AI assistant
+          (<a href="homelab.html#dot">homelab page</a>).
+        </figcaption>
+      </figure>
+
+      <div class="callout">
+        <h3>How the sensor sees traffic</h3>
+        <p>
+          The targets are VMs on the same Proxmox host as the sensor, so a switch mirror port could not see their traffic.
+          Instead, a Linux <code>tc</code> mirror on the host's physical uplink copies VLAN traffic to a dedicated
+          capture interface on the sensor VM. A systemd unit and a VM hook script re-apply the mirror after reboots.
+        </p>
+        <p>
+          <strong>Known blind spot:</strong> SSH between two VMs on the Targets VLAN stays inside the Proxmox bridge and
+          never reaches the mirror. Lateral movement is detected by the Wazuh agents instead.
+        </p>
+      </div>
+
+      <div class="split-2">
+        <div class="info-card">
+          <div class="label">Network detection → ELK</div>
+          <h3>Zeek · Suricata · Snort</h3>
+          <p>
+            Zeek writes connection, HTTP, and SSH metadata; Suricata and Snort (JSON alerts) add
+            signature hits. Filebeat ships all three to Logstash, and Kibana holds the baseline and investigation dashboards.
+          </p>
+        </div>
+        <div class="info-card">
+          <div class="label">Host detection → Wazuh</div>
+          <h3>Agents, auditd, custom rules</h3>
+          <p>
+            Agents on DVWA and Metasploitable forward auth, web, and auditd logs. Custom rules (100010–100021) cover
+            SQL injection, command injection, web-shell upload, Nmap scans, HTTP error bursts, and PwnKit.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="cameras" aria-labelledby="cameras-title">
+      <div class="section-head">
+        <h2 id="cameras-title">Camera NVR · VLAN 74</h2>
+        <span class="aside">GPU detection on the InfoSec host</span>
+      </div>
+      <p class="prose">
+        The house cameras are battery-powered Wi-Fi cameras with no native video stream and no hardware NVR, so a VM
+        on the InfoSec Proxmox host is the NVR. A low-profile NVIDIA GPU in that host is passed through to the VM with
+        VFIO. Frigate's TensorRT build runs a lightweight YOLO detector on the GPU with hardware video decode, tracks
+        people, and runs face recognition. Snapshots are kept; continuous recording is off.
+      </p>
+
+      <article class="flow">
+        <h3><span class="flow-num">→</span> Camera event pipeline</h3>
+        <div class="pipeline">
+          <span class="node cams">Wi-Fi cameras (dedicated SSID)</span><span class="arrow">→</span>
+          <span class="node cams">Protocol bridge → RTSP</span><span class="arrow">→</span>
+          <span class="node cams">go2rtc restream</span><span class="arrow">→</span>
+          <span class="node cams">Frigate · GPU detection · faces · attributes</span><span class="arrow">→</span>
+          <span class="node cams">MQTT event</span><span class="arrow">→</span>
+          <span class="node dot">Forwarder on the AI box → Dot speaks</span>
+        </div>
+        <p class="flow-note">
+          Dot does not analyze video. Frigate does detection; a forwarder service on the AI box turns MQTT events into
+          spoken alerts (a known person by name, or “An unauthorized person was detected.”). Dot itself is
+          documented on the <a href="homelab.html#dot">homelab page</a>.
+        </p>
+      </article>
+
+      <div class="matrix-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th>Capability</th>
+              <th>How</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="num">1</td><td>Named person vs. unauthorized, per camera</td><td>Frigate face library (trained on 30+ images) + Dot authorized roster</td><td><span class="status done">Live</span></td></tr>
+            <tr><td class="num">2</td><td>Suspicious behavior near entry points</td><td>Frigate zones mapped to behaviors, unauthorized people only</td><td><span class="status wip">Waiting on outdoor mounting</span></td></tr>
+            <tr><td class="num">3</td><td>Attributes when no face is visible</td><td>Frigate custom classification (attribute type): hood, backpack, mask, hat</td><td><span class="status done">Live</span></td></tr>
+            <tr><td class="num">4</td><td>Experimental weapon alert</td><td>Person + weapon detection model; Dot speaks a hedged “unverified” line</td><td><span class="status wip">Dot side tested · model pending</span></td></tr>
+            <tr><td class="num">5</td><td>Body re-identification</td><td>Sidecar matching person crops to a gallery</td><td><span class="status wip">Prototype</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="split-2">
+        <div class="info-card">
+          <div class="label">Access</div>
+          <h3>Behind Traefik + Authentik</h3>
+          <p>
+            The Frigate UI and the go2rtc live tiles are served by
+            Traefik on the homelab host with Authentik in front. The ops dashboard shows the
+            live tiles, and phones reach the NVR over WireGuard.
+          </p>
+        </div>
+        <div class="info-card">
+          <div class="label">Isolation</div>
+          <h3>Cameras never leave VLAN 74</h3>
+          <p>
+            Cameras are denied the internet and every other private network. Only the protocol bridge on the NVR VM
+            talks to them. Inbound, the lab gateway allows Traefik to the UI, the AI box to MQTT, and trusted/VPN
+            clients to the UI and WebRTC.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="hosts" aria-labelledby="hosts-title">
+      <div class="section-head">
+        <h2 id="hosts-title">Compute layout</h2>
+        <span class="aside">InfoSec Proxmox + supporting machines</span>
+      </div>
+      <div class="hosts">
+        <div class="host">
+          <h3>InfoSec Proxmox</h3>
+          <p class="meta">Management VLAN · VLAN-aware bridge</p>
+          <ul>
+            <li>Trunks VLANs 2, 4, 5, 6, 74 to guests</li>
+            <li><code>tc</code> mirror to the NSM sensor</li>
+            <li>GPU reserved for passthrough to the NVR</li>
+            <li>Clean snapshots of every target</li>
+            <li>VM control exposed to the ops dashboard</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>SOC Docker VM</h3>
+          <p class="meta">VLAN 2</p>
+          <ul>
+            <li>Wazuh single-node stack</li>
+            <li>Elasticsearch, Logstash, Kibana</li>
+            <li>OpenVAS / Greenbone, DefectDojo</li>
+            <li>Traefik, Portainer, Gitea</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>NSM sensor</h3>
+          <p class="meta">VLAN 6 · dedicated capture interface</p>
+          <ul>
+            <li>Zeek</li>
+            <li>Suricata (IDS mode)</li>
+            <li>Snort</li>
+            <li>Filebeat → Logstash</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Targets</h3>
+          <p class="meta">VLAN 4</p>
+          <ul>
+            <li>DVWA</li>
+            <li>Metasploitable</li>
+            <li>Wazuh agents on both</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Malware sandbox</h3>
+          <p class="meta">VLAN 5 · no WAN</p>
+          <ul>
+            <li>REMnux</li>
+            <li>FlareVM (Windows)</li>
+            <li>INetSim + dnsmasq on REMnux</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Admin PC + Kali</h3>
+          <p class="meta">Mgmt VLAN 1 · Kali on VLAN 6</p>
+          <ul>
+            <li>Kali in VirtualBox, bridged to a 2nd NIC</li>
+            <li>Kali NIC isolated from the host OS</li>
+            <li>Sample staging for the sandbox</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Camera NVR VM</h3>
+          <p class="meta">VLAN 74 · GPU passthrough</p>
+          <ul>
+            <li>Frigate (TensorRT) + go2rtc</li>
+            <li>Camera protocol bridge → RTSP</li>
+            <li>Mosquitto MQTT broker</li>
+            <li>NVIDIA Container Toolkit</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="flows" aria-labelledby="flows-title">
+      <div class="section-head">
+        <h2 id="flows-title">Operational data flows</h2>
+        <span class="aside">How components integrate</span>
+      </div>
+      <div class="flows">
+        <article class="flow">
+          <h3><span class="flow-num">1</span> Attack traffic → network detection</h3>
+          <div class="pipeline">
+            <span class="node attack">Kali (VLAN 6)</span><span class="arrow">→</span>
+            <span class="node targets">DVWA / Metasploitable</span><span class="arrow">→</span>
+            <span class="node attack">tc mirror → NSM sensor</span><span class="arrow">→</span>
+            <span class="node attack">Zeek · Suricata · Snort</span><span class="arrow">→</span>
+            <span class="node services">Filebeat → Logstash</span><span class="arrow">→</span>
+            <span class="node services">Elasticsearch · Kibana</span>
+          </div>
+          <p class="flow-note">The lab gateway allows Attack → Targets; the sensor is passive and only receives a copy of the traffic.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">2</span> Host telemetry → Wazuh</h3>
+          <div class="pipeline">
+            <span class="node targets">Target agents + auditd</span><span class="arrow">→</span>
+            <span class="node services">Wazuh manager</span><span class="arrow">→</span>
+            <span class="node services">Custom rules + MITRE IDs</span><span class="arrow">→</span>
+            <span class="node services">Wazuh dashboard</span>
+          </div>
+          <p class="flow-note">Targets may reach Sec Services only on the agent ports, so a compromised target cannot reach the SIEM's admin interfaces.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">3</span> Alert escalation out of the SOC</h3>
+          <div class="pipeline">
+            <span class="node services">Wazuh integration (level ≥ 7)</span><span class="arrow">→</span>
+            <span class="node home">Ops dashboard webhook</span><span class="arrow">→</span>
+            <span class="node home">Alert inbox + ntfy push</span><span class="arrow">→</span>
+            <span class="node dot">Dot AI (homelab) speaks “high” alerts</span>
+          </div>
+          <p class="flow-note">A custom Wazuh integration script posts each alert with a shared secret; clicking an alert in the dashboard opens the exact Wazuh document.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">4</span> Vulnerability management lifecycle</h3>
+          <div class="pipeline">
+            <span class="node services">OpenVAS (authenticated)</span><span class="arrow">+</span>
+            <span class="node services">OWASP ZAP (DVWA)</span><span class="arrow">→</span>
+            <span class="node services">DefectDojo triage</span><span class="arrow">→</span>
+            <span class="node targets">Fix on target</span><span class="arrow">→</span>
+            <span class="node mgmt">Change record + rescan</span>
+          </div>
+          <p class="flow-note">Before/after OpenVAS and ZAP reports document each remediation, from ProFTPD mod_copy to PwnKit.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">5</span> Isolated malware analysis</h3>
+          <div class="pipeline">
+            <span class="node mgmt">Admin PC (Mgmt)</span><span class="arrow">→</span>
+            <span class="node malware">Break-glass copy to REMnux</span><span class="arrow">→</span>
+            <span class="node malware">Static analysis</span><span class="arrow">→</span>
+            <span class="node malware">FlareVM detonation + INetSim</span><span class="arrow">→</span>
+            <span class="node mgmt">IOC report (no binaries out)</span>
+          </div>
+          <p class="flow-note">The lab gateway drops Malware → WAN and Malware → every VLAN. FlareVM's DNS and gateway point at REMnux, so all “internet” is simulated.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">6</span> Person at the door → spoken alert</h3>
+          <div class="pipeline">
+            <span class="node cams">Camera wakes on motion</span><span class="arrow">→</span>
+            <span class="node cams">Frigate person + face match</span><span class="arrow">→</span>
+            <span class="node cams">MQTT event</span><span class="arrow">→</span>
+            <span class="node dot">Forwarder (VLAN 3)</span><span class="arrow">→</span>
+            <span class="node dot">Dot speaks on Lab Dash</span>
+          </div>
+          <p class="flow-note">The forwarder waits a few seconds for a face match before announcing a stranger, so known people are called by name instead of “unauthorized”.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="firewall" aria-labelledby="firewall-title">
+      <div class="section-head">
+        <h2 id="firewall-title">Firewall policy</h2>
+        <span class="aside">SOC zones · top to bottom</span>
+      </div>
+      <p class="prose">
+        Inter-VLAN traffic is denied by default. The rules below are the SOC policy as implemented and tested from
+        each host (for example, Kali → the Proxmox UI must fail and DVWA → the Wazuh manager must succeed).
+      </p>
+      <div class="matrix-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Action</th>
+              <th>From</th>
+              <th>To</th>
+              
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="num">1</td><td class="yes">Allow</td><td>Established / related</td><td>Any</td><td>Return traffic</td></tr>
+            <tr><td class="num">2</td><td class="yes">Allow</td><td>Mgmt (1) · VPN (75)</td><td>SOC Docker VM</td><td>Admin access to SOC UIs</td></tr>
+            <tr><td class="num">3</td><td class="yes">Allow</td><td>Mgmt (1) · VPN (75)</td><td>NSM sensor · Targets</td><td>Admin SSH</td></tr>
+            <tr><td class="num">4</td><td class="limited">Limited</td><td>Attack (6)</td><td>SOC Docker VM</td><td>Filebeat → Logstash only</td></tr>
+            <tr><td class="num">5</td><td class="limited">Limited</td><td>Targets (4)</td><td>SOC Docker VM</td><td>Wazuh agent enrolment + events only</td></tr>
+            <tr><td class="num">6</td><td class="yes">Allow</td><td>Attack (6)</td><td>Targets (4)</td><td>Purple-team exercises</td></tr>
+            <tr><td class="num">7</td><td class="yes">Allow</td><td>Sec Services (2)</td><td>Targets (4)</td><td>OpenVAS authenticated scans</td></tr>
+            <tr><td class="num">8</td><td class="limited">Limited</td><td>Sec Services (2)</td><td>WAN</td><td>Feed and image updates</td></tr>
+            <tr><td class="num">9</td><td class="no">Drop</td><td>Attack (6)</td><td>Mgmt · Proxmox · lab gateway admin</td><td>Attacker can't touch infrastructure</td></tr>
+            <tr><td class="num">10</td><td class="no">Drop</td><td>Sec Services · Targets</td><td>Mgmt (1)</td><td>No pivot into management</td></tr>
+            <tr><td class="num">11</td><td class="no">Drop</td><td>Malware (5)</td><td>WAN + every VLAN</td><td>Full containment</td></tr>
+            <tr><td class="num">12</td><td class="no">Drop</td><td>Any lab VLAN</td><td>Any lab VLAN</td><td>Default-deny catch-all</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="matrix-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Action</th>
+              <th>From</th>
+              <th>To</th>
+              
+              <th>Camera VLAN 74 rule</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="num">1</td><td class="limited">Limited</td><td>Traefik (70)</td><td>Camera NVR VM</td><td>Frigate UI and go2rtc tiles behind Authentik</td></tr>
+            <tr><td class="num">2</td><td class="limited">Limited</td><td>Trusted · VPN (75)</td><td>Camera NVR VM</td><td>UI and WebRTC from phones over WireGuard</td></tr>
+            <tr><td class="num">3</td><td class="limited">Limited</td><td>Camera NVR VM</td><td>AdGuard (70)</td><td>DNS</td></tr>
+            <tr><td class="num">4</td><td class="limited">Limited</td><td>Cameras (74)</td><td>Lab gateway</td><td>NTP</td></tr>
+            <tr><td class="num">5</td><td class="yes">Allow</td><td>Cameras (74)</td><td>Cameras (74)</td><td>Protocol bridge ↔ cameras and DHCP</td></tr>
+            <tr><td class="num">6</td><td class="no">Drop</td><td>WAN</td><td>Cameras (74)</td><td>No inbound port-forwards</td></tr>
+            <tr><td class="num">7</td><td class="no">Drop</td><td>Cameras (74)</td><td>WAN</td><td>Cameras can't phone home</td></tr>
+            <tr><td class="num">8</td><td class="no">Drop</td><td>Trusted · VPN</td><td>Cameras (74)</td><td>Only the NVR is reachable, never camera IPs</td></tr>
+            <tr><td class="num">9</td><td class="no">Drop</td><td>Cameras (74)</td><td>RFC1918</td><td>Catch-all</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="flow-note">Allow = permitted · Limited = specific services only · Drop = blocked. Links between the SOC, homelab, and Dot AI are listed on the <a href="network.html#zones">network &amp; hardware page</a>.</p>
+    </section>
+
+    <section id="results" aria-labelledby="results-title">
+      <div class="section-head">
+        <h2 id="results-title">Results &amp; portfolio projects</h2>
+        <span class="aside">Evidence from the lab</span>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="value">9</div><div class="label">Custom Wazuh rules with MITRE IDs</div></div>
+        <div class="stat"><div class="value">4</div><div class="label">Attack scenarios: recon, web, post-exploit, lateral</div></div>
+        <div class="stat"><div class="value">6</div><div class="label">Remediation change records</div></div>
+        <div class="stat"><div class="value">320k+</div><div class="label">NSM events / 24h baseline (Zeek, Suricata, Snort)</div></div>
+      </div>
+
+      <div class="outcomes">
+        <article class="outcome">
+          <h3>ELK + Wazuh detection engineering <span class="status done">Complete</span></h3>
+          <p>
+            Recon, DVWA SQLi / command injection / upload, ProFTPD exploit, SSH brute force, PwnKit, and lateral movement,
+            each with operator logs, KQL queries, findings, five detection use cases, a Kibana dashboard export, and a
+            formal incident report.
+          </p>
+          <p class="maps"><a href="https://github.com/JonahCaro1/Homelab-SOC-Detection">Project →</a></p>
+        </article>
+        <article class="outcome">
+          <h3>Vulnerability management program <span class="status done">Complete</span></h3>
+          <p>
+            Authenticated OpenVAS scans of both targets plus OWASP ZAP on DVWA, findings tracked in DefectDojo,
+            six change records, and before/after reports proving each fix.
+          </p>
+          <p class="maps"><a href="https://github.com/JonahCaro1/Vulnerability-Management">Project →</a></p>
+        </article>
+        <article class="outcome">
+          <h3>Malware analysis sandbox <span class="status wip">In progress</span></h3>
+          <p>
+            REMnux and FlareVM are built, verified isolated, and serving simulated internet. Samples from theZoo are staged
+            on REMnux for static and dynamic analysis and ATT&amp;CK-mapped threat reports.
+          </p>
+          <p class="maps"><a href="projects/03-malware-analysis-sandbox/">Project →</a></p>
+        </article>
+        <article class="outcome">
+          <h3>AI camera security <span class="status wip">In progress</span></h3>
+          <p>
+            Battery Wi-Fi cameras bridged to Frigate, GPU detection on a passed-through GPU, and face
+            recognition plus attribute classifiers driving spoken alerts through Dot. Zone behaviors and the weapon model are next.
+          </p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <strong>Homelab Portfolio — Cybersecurity Lab Architecture</strong><br />
+        Companions: <a href="network.html">Network &amp; Hardware</a> · <a href="homelab.html">Homelab Services Architecture</a>
+      </div>
+      <div>
+        InfoSec Proxmox · Wazuh · ELK · Zeek · Suricata · Snort · OpenVAS · DefectDojo · Frigate
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

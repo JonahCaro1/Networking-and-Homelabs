@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Homelab Services Architecture | Portfolio</title>
+  <meta name="description" content="As-built Services Proxmox host: homelab VLANs behind a lab gateway, WireGuard and AdGuard LXCs, Traefik + Authentik, Jellyfin/Immich, game servers, a custom ops dashboard, and Dot AI, a self-hosted voice assistant on its own GPU PC." />
+  <meta name="author" content="Jonah Caro" />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#0b1220" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Homelab Services Architecture" />
+  <meta property="og:description" content="Proxmox services host: WireGuard, Traefik + Authentik SSO, media, gaming, a custom ops dashboard, and the Dot AI voice assistant." />
+  <meta property="og:locale" content="en_US" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Homelab Services Architecture" />
+  <meta name="twitter:description" content="WireGuard, Traefik + Authentik, media, gaming, a custom ops dashboard, and Dot AI — companion to the SOC lab." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --bg-elevated: #ffffff;
+      --ink: #0f172a;
+      --ink-secondary: #334155;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --line-strong: #cbd5e1;
+      --accent: #0369a1;
+      --accent-soft: #e0f2fe;
+      --accent-ink: #0c4a6e;
+      --mgmt: #0369a1;
+      --core: #6d28d9;
+      --media: #0f766e;
+      --download: #b91c1c;
+      --gaming: #b45309;
+      --cameras: #c2410c;
+      --vpn: #0e7490;
+      --iot: #4d7c0f;
+      --dot: #a16207;
+      --edge: #0e7490;
+      --soc: #0f766e;
+      --radius: 10px;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+      --max: 1080px;
+      --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent-ink); }
+    a:hover { text-decoration: underline; }
+
+    .skip {
+      position: absolute;
+      left: -999px;
+      top: 0;
+      background: var(--ink);
+      color: #fff;
+      padding: 0.5rem 1rem;
+      z-index: 100;
+    }
+    .skip:focus { left: 0; }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: #f1f5f9;
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      color: var(--ink);
+    }
+
+    .topbar {
+      background: #0b1220;
+      color: #e2e8f0;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .topbar-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-kicker {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+
+    .brand-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .top-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+      list-style: none;
+      font-size: 0.82rem;
+    }
+
+    .top-nav a {
+      color: #cbd5e1;
+      text-decoration: none;
+    }
+
+    .top-nav a:hover { color: #fff; }
+
+    .top-nav a.peer {
+      color: #5eead4;
+      font-weight: 500;
+    }
+
+    .hero {
+      background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
+      color: #e2e8f0;
+      padding: 2.75rem 1.5rem 3rem;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .hero-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #7dd3fc;
+      margin-bottom: 1rem;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #38bdf8;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.75rem, 3.5vw, 2.35rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      color: #f8fafc;
+      max-width: 20ch;
+      margin-bottom: 0.85rem;
+    }
+
+    .hero-lead {
+      font-size: 1.05rem;
+      color: #94a3b8;
+      max-width: 42rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .chip {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .objectives {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
+    }
+
+    @media (max-width: 800px) {
+      .objectives { grid-template-columns: 1fr; }
+    }
+
+    .objective {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid #1e293b;
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+    }
+
+    .objective h2 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 0.35rem;
+    }
+
+    .objective p {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin: 0;
+    }
+
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    section { margin-bottom: 2.75rem; }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head h2 {
+      font-size: 1.2rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .section-head .aside {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .prose {
+      color: var(--ink-secondary);
+      font-size: 0.95rem;
+      max-width: 46rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .skill-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .skill {
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 0.35rem 0.7rem;
+      border-radius: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      color: var(--ink-secondary);
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+    }
+
+    .diagram-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+
+    .diagram-card figcaption {
+      padding: 0.85rem 1.15rem;
+      border-top: 1px solid var(--line);
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: #f8fafc;
+    }
+
+    .diagram-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #fafbfc;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1.15rem;
+      margin: 1rem 0 1.25rem;
+      padding: 0.85rem 1rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .swatch {
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .vlan-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    @media (max-width: 760px) {
+      .vlan-grid { grid-template-columns: 1fr; }
+    }
+
+    .vlan {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .vlan-header {
+      padding: 0.8rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .vlan-header h3 {
+      font-size: 0.95rem;
+      font-weight: 650;
+    }
+
+    .vlan-id {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .vlan-body { padding: 0.9rem 1rem 1.05rem; flex: 1; }
+
+    .vlan-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .svc-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .svc {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      padding: 0.5rem 0.6rem;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-left-width: 3px;
+    }
+
+    .svc-name {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--ink);
+      display: block;
+    }
+
+    .svc-how {
+      font-size: 0.74rem;
+      color: var(--muted);
+      display: block;
+      margin-top: 0.1rem;
+    }
+
+    .deploy {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      white-space: nowrap;
+      padding-top: 0.2rem;
+    }
+
+    .vlan-mgmt .vlan-header { background: #f0f9ff; color: var(--mgmt); }
+    .vlan-mgmt .svc { border-left-color: var(--mgmt); }
+
+    .vlan-core .vlan-header { background: #f5f3ff; color: var(--core); }
+    .vlan-core .svc { border-left-color: var(--core); }
+
+    .vlan-media .vlan-header { background: #f0fdfa; color: var(--media); }
+    .vlan-media .svc { border-left-color: var(--media); }
+
+    .vlan-download .vlan-header { background: #fef2f2; color: var(--download); }
+    .vlan-download .svc { border-left-color: var(--download); }
+
+    .vlan-gaming .vlan-header { background: #fffbeb; color: var(--gaming); }
+    .vlan-gaming .svc { border-left-color: var(--gaming); }
+
+    .vlan-cameras .vlan-header { background: #fff7ed; color: var(--cameras); }
+    .vlan-cameras .svc { border-left-color: var(--cameras); }
+
+    .vlan-vpn .vlan-header { background: #ecfeff; color: var(--vpn); }
+    .vlan-vpn .svc { border-left-color: var(--vpn); }
+
+    .vlan-dot .vlan-header { background: #fefce8; color: var(--dot); }
+    .vlan-dot .svc { border-left-color: var(--dot); }
+
+    .vlan-iot .vlan-header { background: #f7fee7; color: var(--iot); }
+    .vlan-iot .svc { border-left-color: var(--iot); }
+
+    .split-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 700px) {
+      .split-2 { grid-template-columns: 1fr; }
+    }
+
+    .info-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.1rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .info-card .label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--edge);
+      margin-bottom: 0.4rem;
+    }
+
+    .info-card h3 {
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .info-card p {
+      font-size: 0.84rem;
+      color: var(--ink-secondary);
+    }
+
+    .callout {
+      background: var(--accent-soft);
+      border: 1px solid #bae6fd;
+      border-radius: 12px;
+      padding: 1rem 1.15rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .callout h3 {
+      font-size: 0.88rem;
+      color: var(--accent-ink);
+      margin-bottom: 0.4rem;
+    }
+
+    .callout p {
+      font-size: 0.84rem;
+      color: var(--ink-secondary);
+    }
+
+    .callout p + p { margin-top: 0.45rem; }
+
+    .callout strong { color: var(--ink); }
+
+    .callout a { color: var(--accent-ink); font-weight: 600; }
+
+    .hosts {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .host {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .host h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .host .meta {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-bottom: 0.7rem;
+    }
+
+    .host ul {
+      list-style: none;
+      font-size: 0.8rem;
+      color: var(--ink-secondary);
+    }
+
+    .host li {
+      padding: 0.22rem 0 0.22rem 0.85rem;
+      position: relative;
+    }
+
+    .host li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55rem;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .flows { display: flex; flex-direction: column; gap: 0.85rem; }
+
+    .flow {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.05rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .flow h3 {
+      font-size: 0.92rem;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-bottom: 0.7rem;
+    }
+
+    .flow-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.45rem;
+      height: 1.45rem;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .pipeline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .node {
+      font-size: 0.76rem;
+      font-weight: 500;
+      padding: 0.38rem 0.6rem;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid var(--line-strong);
+      color: var(--ink);
+    }
+
+    .node.media { border-color: #5eead4; background: #f0fdfa; color: var(--media); }
+    .node.gaming { border-color: #fcd34d; background: #fffbeb; color: var(--gaming); }
+    .node.core { border-color: #c4b5fd; background: #f5f3ff; color: var(--core); }
+    .node.download { border-color: #fca5a5; background: #fef2f2; color: var(--download); }
+    .node.cameras { border-color: #fdba74; background: #fff7ed; color: var(--cameras); }
+    .node.edge { border-color: #67e8f9; background: #ecfeff; color: var(--edge); }
+    .node.soc { border-color: #5eead4; background: #f0fdfa; color: var(--soc); }
+    .node.dot { border-color: #fde68a; background: #fefce8; color: var(--dot); }
+
+    .arrow {
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 0 0.1rem;
+      user-select: none;
+    }
+
+    .flow-note {
+      margin-top: 0.65rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .matrix-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--bg-elevated);
+      box-shadow: var(--shadow);
+      margin-bottom: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      min-width: 720px;
+    }
+
+    th, td {
+      padding: 0.6rem 0.7rem;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    th {
+      background: #f8fafc;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    td { color: var(--ink-secondary); }
+    td.mono, .mono { font-family: var(--mono); font-size: 0.74rem; }
+    td.num { font-family: var(--mono); font-weight: 600; color: var(--ink); white-space: nowrap; }
+    td.strong { font-weight: 600; color: var(--ink); white-space: nowrap; }
+
+    .yes { color: var(--media); font-weight: 650; }
+    .no { color: #94a3b8; font-weight: 600; }
+    .limited { color: var(--gaming); font-weight: 600; }
+
+    .group-row td {
+      background: #f8fafc;
+      font-family: var(--mono);
+      font-size: 0.66rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      padding-top: 0.45rem;
+      padding-bottom: 0.45rem;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 860px) {
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 560px) {
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+
+    .outcomes {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+    }
+
+    @media (max-width: 700px) {
+      .outcomes { grid-template-columns: 1fr; }
+    }
+
+    .outcome {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.05rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .outcome h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .outcome p {
+      font-size: 0.82rem;
+      color: var(--ink-secondary);
+    }
+
+    .outcome .maps {
+      margin-top: 0.65rem;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--accent-ink);
+    }
+
+    footer {
+      background: #0b1220;
+      color: #94a3b8;
+      padding: 2rem 1.5rem;
+      border-top: 1px solid #1e293b;
+    }
+
+    .footer-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.8rem;
+    }
+
+    footer strong { color: #e2e8f0; font-weight: 600; }
+    footer a { color: #7dd3fc; }
+
+    @media print {
+      .topbar, .skip { display: none; }
+      body { background: #fff; font-size: 11pt; }
+      .hero {
+        background: #fff !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000;
+        padding: 1rem 0;
+      }
+      .hero h1, .hero-lead, .objective h2, .objective p, .eyebrow { color: #000 !important; }
+      .chip { border-color: #999; color: #333; background: #fff; }
+      .objective { border-color: #ccc; background: #fff; }
+      .diagram-card, .vlan, .flow, .host, .info-card, .outcome, .matrix-wrap {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+      a { color: #000; text-decoration: none; }
+      footer { background: #fff; color: #333; border-top: 1px solid #ccc; }
+    }
+  </style>
+</head>
+
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" id="top">
+        <span class="brand-kicker">Homelab Portfolio</span>
+        <span class="brand-name">Services Host Architecture</span>
+      </a>
+      <nav aria-label="Page sections">
+        <ul class="top-nav">
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#vlans">VLANs</a></li>
+          <li><a href="#guests">Guests</a></li>
+          <li><a href="#dashboard">Ops dashboard</a></li>
+          <li><a href="#dot">Dot AI</a></li>
+          <li><a href="#firewall">Firewall</a></li>
+          <li><a href="#flows">Flows</a></li>
+          <li><a href="#outcomes">Outcomes</a></li>
+          <li><a class="peer" href="network.html">Network &amp; hardware →</a></li>
+          <li><a class="peer" href="index.html">Cybersecurity lab →</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Proxmox · WireGuard · Traefik + Authentik · VLAN segmentation</p>
+      <h1>Homelab Services Architecture</h1>
+      <p class="hero-lead">
+        A dedicated Proxmox host for everyday self-hosted services (media, game servers, and my own ops
+        dashboard) plus Dot AI, a local voice assistant I designed with the assistance of Cursor that runs on
+        its own GPU PC. Each workload lives on its own VLAN behind the lab gateway, every web UI is reached through
+        one Traefik entry point with Authentik SSO, and remote access is WireGuard only.
+      </p>
+      <div class="meta-row" aria-label="Host specifications">
+        <span class="chip">Proxmox VE</span>
+        <span class="chip">VLANs 3 · 8 · 70 · 71 · 73 · 75</span>
+        <span class="chip">Traefik + Authentik SSO</span>
+        <span class="chip">1 TB media pool (VirtioFS)</span>
+        <span class="chip">Remote access: WireGuard only</span>
+      </div>
+      <div class="objectives">
+        <div class="objective">
+          <h2>Segmented services</h2>
+          <p>Core, media, gaming, and the AI box each get a VLAN and a default-deny firewall policy.</p>
+        </div>
+        <div class="objective">
+          <h2>Single, authenticated front door</h2>
+          <p>AdGuard DNS → Traefik → Authentik for every UI. WireGuard peers land on their own VLAN.</p>
+        </div>
+        <div class="objective">
+          <h2>Ops dashboard + Dot AI</h2>
+          <p>Lab Dash monitors and controls both Proxmox hosts. Dot, a fully local voice assistant, is always listening on it and speaks alerts.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main id="main">
+    <section id="overview" aria-labelledby="overview-title">
+      <div class="section-head">
+        <h2 id="overview-title">Project overview</h2>
+        <span class="aside">Skills demonstrated</span>
+      </div>
+      <p class="prose">
+        This is the second Proxmox host in my lab. It runs the services I actually use day to day, built with
+        the same segmentation and least-privilege mindset as the
+        <a href="index.html">cybersecurity lab</a>. Everything listed here is deployed; compose files and
+        runbooks live in this repository and in a private Forgejo instance. The network and the hardware
+        both hosts and the AI PC run on are covered on the <a href="network.html">network &amp; hardware page</a>.
+      </p>
+      <div class="skill-grid" aria-label="Skills">
+        <span class="skill">Proxmox VE · VMs + LXCs</span>
+        <span class="skill">VirtioFS storage sharing</span>
+        <span class="skill">Docker / Compose</span>
+        <span class="skill">WireGuard VPN</span>
+        <span class="skill">AdGuard Home DNS</span>
+        <span class="skill">Traefik reverse proxy</span>
+        <span class="skill">Authentik SSO (forward-auth + OIDC)</span>
+        <span class="skill">Local LLM (Ollama · Llama)</span>
+        <span class="skill">Speech: Faster-Whisper · XTTS · Piper</span>
+        <span class="skill">Python · FastAPI · WebSockets</span>
+        <span class="skill">Game server hosting</span>
+        <span class="skill">FastAPI + React (ops dashboard)</span>
+        <span class="skill">Webhook + ntfy alerting</span>
+        <span class="skill">Zone firewall</span>
+      </div>
+    </section>
+
+    <section id="vlans" aria-labelledby="vlans-title">
+      <div class="section-head">
+        <h2 id="vlans-title">Service VLANs</h2>
+        <span class="aside">Homelab networks on the lab gateway</span>
+      </div>
+      <p class="prose">
+        Each kind of service gets its own VLAN and firewall policy, so a compromised app can't reach the media
+        library or the identity provider. The full VLAN plan and the hardware are on the
+        <a href="network.html">network &amp; hardware page</a>.
+      </p>
+
+      <div class="legend">
+        <div class="legend-item"><span class="swatch" style="background:var(--dot)"></span> 3 DOT AI</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--iot)"></span> 8 IoT</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--core)"></span> 70 Home Core Services</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--media)"></span> 71 Media</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--gaming)"></span> 73 Gaming</div>
+        <div class="legend-item"><span class="swatch" style="background:var(--vpn)"></span> 75 VPN Network</div>
+      </div>
+
+      <div class="vlan-grid">
+        <article class="vlan vlan-core">
+          <div class="vlan-header">
+            <h3>Home Core Services</h3>
+            <span class="vlan-id">VLAN 70</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">DNS, VPN, identity, and the single Traefik entry point for every web UI.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">AdGuard Home</span><span class="svc-how">DNS; lab hostnames rewrite to Traefik</span></div><span class="deploy">LXC</span></li>
+              <li class="svc"><div><span class="svc-name">WireGuard</span><span class="svc-how">VPN server + web UI</span></div><span class="deploy">LXC</span></li>
+              <li class="svc"><div><span class="svc-name">Traefik + Authentik</span><span class="svc-how">TLS reverse proxy with forward-auth and OIDC SSO</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Vaultwarden · Forgejo · Wiki.js · Portainer</span><span class="svc-how">Passwords, private Git, runbooks, container management</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Lab Dash + ntfy</span><span class="svc-how">Custom FastAPI/React dashboard and push notifications</span></div><span class="deploy">Docker</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-media">
+          <div class="vlan-header">
+            <h3>Media</h3>
+            <span class="vlan-id">VLAN 71</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Library apps, reached only through Traefik. Library and photos live on Pool B.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Jellyfin</span><span class="svc-how">Streaming from the shared media library</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Immich</span><span class="svc-how">Photo backup, Authentik OIDC login</span></div><span class="deploy">Docker</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-gaming">
+          <div class="vlan-header">
+            <h3>Gaming</h3>
+            <span class="vlan-id">VLAN 73</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Raw game ports, no proxy. Friends join over WireGuard instead of public port-forwards.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Minecraft (Paper)</span><span class="svc-how">Java edition server</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Valheim</span><span class="svc-how">Custom world saves</span></div><span class="deploy">Docker</span></li>
+              <li class="svc"><div><span class="svc-name">Gaming agent</span><span class="svc-how">Player lists, start/stop, world switch, save upload and backup</span></div><span class="deploy">systemd</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-dot">
+          <div class="vlan-header">
+            <h3>DOT AI</h3>
+            <span class="vlan-id">VLAN 3</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">A dedicated GPU PC for my voice assistant. Every model runs locally.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Dot AI</span><span class="svc-how">FastAPI + WebSockets, behind Authentik</span></div><span class="deploy">Python</span></li>
+              <li class="svc"><div><span class="svc-name">Ollama · Llama</span><span class="svc-how">Conversation and skill routing on the RTX 2080 SUPER</span></div><span class="deploy">GPU</span></li>
+              <li class="svc"><div><span class="svc-name">Faster-Whisper · XTTS · Piper</span><span class="svc-how">Speech-to-text; cloned voice via the XTTS sidecar, Piper as fallback</span></div><span class="deploy">GPU / CPU</span></li>
+              <li class="svc"><div><span class="svc-name">Frigate forwarder</span><span class="svc-how">systemd service turning camera MQTT events into spoken alerts</span></div><span class="deploy">systemd</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-vpn">
+          <div class="vlan-header">
+            <h3>VPN Network</h3>
+            <span class="vlan-id">VLAN 75</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Address pool for WireGuard clients, so remote users are their own firewall zone.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Phone and laptop peers</span><span class="svc-how">DNS = AdGuard; split tunnel to lab subnets</span></div><span class="deploy">Peers</span></li>
+              <li class="svc"><div><span class="svc-name">Allowed reach</span><span class="svc-how">Web apps through Traefik, DNS, game servers, the Frigate NVR</span></div><span class="deploy">Policy</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="vlan vlan-iot">
+          <div class="vlan-header">
+            <h3>IoT</h3>
+            <span class="vlan-id">VLAN 8</span>
+          </div>
+          <div class="vlan-body">
+            <p class="vlan-desc">Smart-home devices are kept off the trusted and lab networks.</p>
+            <ul class="svc-list">
+              <li class="svc"><div><span class="svc-name">Smart-home devices</span><span class="svc-how">Isolated from Management, services, and SOC VLANs</span></div><span class="deploy">IoT</span></li>
+              <li class="svc"><div><span class="svc-name">Dashboard IoT panel</span><span class="svc-how">Gateway, switch, and camera (via the NVR) health shown on the ops Home tab</span></div><span class="deploy">Monitor</span></li>
+            </ul>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="guests" aria-labelledby="guests-title">
+      <div class="section-head">
+        <h2 id="guests-title">Guest map</h2>
+        <span class="aside">One Docker VM per trust zone</span>
+      </div>
+      <p class="prose">
+        Network appliances run as LXCs; application stacks run as one Ubuntu Server Docker VM per VLAN, so
+        Compose stays simple and a compromise stays in one zone. Compose files are in this repo's
+        <a href="stacks/"><code>stacks/</code></a> folder.
+      </p>
+      <div class="matrix-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Guest</th>
+              <th>Type</th>
+              <th>VLAN</th>
+              <th>Runs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="strong">DNS</td><td>LXC</td><td class="mono">70</td><td>AdGuard Home for lab and VPN clients</td></tr>
+            <tr><td class="strong">VPN</td><td>LXC</td><td class="mono">70</td><td>WireGuard server + web UI; clients get addresses on VLAN 75</td></tr>
+            <tr><td class="strong">Core VM</td><td>VM</td><td class="mono">70</td><td>Traefik, Authentik, Vaultwarden, Forgejo, Wiki.js, Portainer, ops dashboard, ntfy</td></tr>
+            <tr><td class="strong">Media VM</td><td>VM</td><td class="mono">71</td><td>Jellyfin, Immich (+ database and cache)</td></tr>
+            <tr><td class="strong">Gaming VM</td><td>VM</td><td class="mono">73</td><td>Minecraft, Valheim, gaming agent</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="flow-note">
+        The camera NVR (VLAN 74) runs on the InfoSec host with a passed-through GPU; see the
+        <a href="index.html#cameras">SOC page</a>. Its live tiles still appear on Lab Dash through Traefik.
+      </p>
+
+      <div class="callout">
+        <h3>Storage: Pool B over VirtioFS</h3>
+        <p>
+          A 1 TB disk on the host is shared into guests with VirtioFS:
+          the media library and photo storage go to the media VM, so the bulk data lives on
+          the large disk while the VM itself stays small.
+        </p>
+      </div>
+
+    </section>
+
+    <section id="dashboard" aria-labelledby="dashboard-title">
+      <div class="section-head">
+        <h2 id="dashboard-title">Lab Dash — ops dashboard</h2>
+        <span class="aside">Custom FastAPI + React · Authentik-gated</span>
+      </div>
+      <p class="prose">
+        Instead of Homepage or Glance, I built my own dashboard. It runs on the core VM behind Traefik and Authentik, and
+        controlling services requires membership in an admin group. It covers both Proxmox hosts and
+        has the Dot AI assistant built in.
+      </p>
+
+      <div class="feature-grid">
+        <div class="host">
+          <h3>Home</h3>
+          <p class="meta">Daily overview</p>
+          <ul>
+            <li>Live camera tiles (go2rtc on the NVR)</li>
+            <li>This-PC gauges + now playing</li>
+            <li>Calendar and recurring reminders</li>
+            <li>Weather, news, markets, YouTube</li>
+            <li>IoT / network device health</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Homelab Services</h3>
+          <p class="meta">Services Proxmox</p>
+          <ul>
+            <li>Health checks for every app</li>
+            <li>VM CPU / RAM from the Proxmox API</li>
+            <li>Start / stop / restart via Portainer</li>
+            <li>One-click open of each UI</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Gaming</h3>
+          <p class="meta">Gaming agent on the gaming VM</p>
+          <ul>
+            <li>Online players per server</li>
+            <li>Start / stop each server</li>
+            <li>Switch, upload, and back up worlds</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Infosec Services</h3>
+          <p class="meta">InfoSec Proxmox</p>
+          <ul>
+            <li>Metrics for every SOC VM</li>
+            <li>Start / shutdown / reboot guests</li>
+            <li>Wazuh alert inbox with deep links</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Alerts &amp; ntfy</h3>
+          <p class="meta">Webhook ingest</p>
+          <ul>
+            <li>Wazuh posts alerts to a webhook endpoint</li>
+            <li>Authenticated with a shared secret</li>
+            <li>Push notifications via ntfy</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Dot AI</h3>
+          <p class="meta">Embedded over HTTPS</p>
+          <ul>
+            <li>Always listening while Lab Dash is open</li>
+            <li>DOT button opens text chat</li>
+            <li>Quick chips: Status, Alerts, VMs, Cameras, IoT, Calendar</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="dot" aria-labelledby="dot-title">
+      <div class="section-head">
+        <h2 id="dot-title">Dot AI — local voice assistant</h2>
+        <span class="aside">VLAN 3 · dedicated GPU PC</span>
+      </div>
+      <p class="prose">
+        Dot is a JARVIS-style personal assistant I designed for this lab with the assistance of Cursor. I directed the
+        architecture, integrations, and behavior; Cursor helped write and iterate on the implementation. It runs on a
+        dedicated PC (see <a href="network.html#hardware">hardware</a>) and every model is local: Faster-Whisper on the
+        GPU for speech-to-text, an 8B Llama model on Ollama for conversation, and a cloned voice from XTTS with Piper as
+        fallback. No voice or lab data leaves the house. It is served over HTTPS behind Authentik.
+      </p>
+
+      <div class="feature-grid">
+        <div class="host">
+          <h3>Voice</h3>
+          <p class="meta">Browser open mic</p>
+          <ul>
+            <li>Wake on “Dot”, “Hey Dot”, “Hello Dot”…</li>
+            <li>Silero / energy VAD in the browser, Whisper wake gate</li>
+            <li>60 s conversation window, no repeat wake word</li>
+            <li>Push-to-talk and text chat</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Conversation</h3>
+          <p class="meta">Local Llama model</p>
+          <ul>
+            <li>Skills first; LLM pulls location, day, query from context</li>
+            <li>Streaming replies</li>
+            <li>Session memory that survives reconnects</li>
+            <li>Remembers preferences and facts across sessions</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Everyday skills</h3>
+          <p class="meta">Assistant</p>
+          <ul>
+            <li>Weather (Open-Meteo) and news (RSS)</li>
+            <li>Web lookup (DuckDuckGo + Wikipedia)</li>
+            <li>Nearby places (OpenStreetMap)</li>
+            <li>Timers, reminders, weekly chores</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Homelab skills</h3>
+          <p class="meta">Read-only via ops API</p>
+          <ul>
+            <li>“What's down?” service health</li>
+            <li>Recent alerts, VM states, IoT devices</li>
+            <li>Camera status and authorized roster</li>
+            <li>Read and add calendar events</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Camera security</h3>
+          <p class="meta">Frigate on the SOC host → Dot</p>
+          <ul>
+            <li>Names authorized people it recognizes</li>
+            <li>Flags unauthorized people</li>
+            <li>Adds attributes (hood, backpack, mask, hat)</li>
+            <li>Authorized roster can be updated by voice</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Spoken alerts</h3>
+          <p class="meta">Push into Dot</p>
+          <ul>
+            <li>Wazuh alerts rated “high” or above</li>
+            <li>Frigate person events</li>
+            <li>Played on every open console / Lab Dash</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout">
+        <h3>How Dot is wired to the rest of the lab</h3>
+        <p>
+          <strong>Embed:</strong> the dashboard only loads Dot for signed-in users, and Dot only allows itself to be
+          embedded by the ops dashboard. HTTPS is required for the browser microphone.
+          <strong>Push in:</strong> the ops dashboard and the camera forwarder send alerts to Dot over an
+          authenticated webhook, while people sign in through Authentik.
+          <strong>Read out:</strong> Dot calls a read-only ops API with its own credential for status, alerts, VMs,
+          IoT, cameras, and the calendar, and can create calendar events. It has no start, stop, or restart actions.
+        </p>
+      </div>
+    </section>
+
+    <section id="firewall" aria-labelledby="firewall-title">
+      <div class="section-head">
+        <h2 id="firewall-title">Firewall summary</h2>
+        <span class="aside">Lab gateway · deny by default</span>
+      </div>
+      <p class="prose">
+        Each homelab VLAN ends in an RFC1918 catch-all drop, so anything not listed below is blocked. Rules name specific
+        hosts (Traefik, AdGuard) rather than whole VLANs wherever possible.
+      </p>
+      <div class="matrix-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>From</th>
+              <th>To</th>
+              
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="group-row"><td colspan="4">Inbound &amp; clients</td></tr>
+            <tr><td class="limited">Forward</td><td>WAN</td><td>WireGuard (70)</td><td>WireGuard — the only inbound forward</td></tr>
+            <tr><td class="yes">Allow</td><td>Mgmt (1) · VPN (75)</td><td>Traefik · core VM (70)</td><td>All web apps through Traefik</td></tr>
+            <tr><td class="yes">Allow</td><td>Mgmt (1) · VPN (75)</td><td>AdGuard (70)</td><td>AdGuard DNS</td></tr>
+            <tr><td class="yes">Allow</td><td>Mgmt (1) · VPN (75)</td><td>Gaming VM (73)</td><td>Game servers</td></tr>
+
+            <tr class="group-row"><td colspan="4">Core → zones</td></tr>
+            <tr><td class="limited">Limited</td><td>Traefik (70)</td><td>Media VM (71)</td><td>Jellyfin, Immich</td></tr>
+            <tr><td class="limited">Limited</td><td>Traefik (70)</td><td>Camera NVR VM (74)</td><td>Frigate UI, go2rtc live tiles (NVR on the SOC host)</td></tr>
+            <tr><td class="limited">Limited</td><td>Core VM (70)</td><td>Gaming VM (73)</td><td>Gaming agent (players, start/stop, worlds)</td></tr>
+            <tr><td class="limited">Limited</td><td>Core VM (70)</td><td>InfoSec Proxmox</td><td>SOC Proxmox API for the Infosec tab</td></tr>
+
+            <tr class="group-row"><td colspan="4">Dot AI (VLAN 3)</td></tr>
+            <tr><td class="limited">Limited</td><td>Core VM (70)</td><td>Dot AI PC</td><td>Ops dashboard pushes high-severity alerts to Dot</td></tr>
+            <tr><td class="limited">Limited</td><td>DOT AI (3)</td><td>Traefik · core VM (70)</td><td>Dot reads the ops internal API</td></tr>
+            <tr><td class="limited">Limited</td><td>DOT AI (3)</td><td>Camera NVR VM (74)</td><td>Frigate MQTT events for the camera forwarder</td></tr>
+
+            <tr class="group-row"><td colspan="4">Zones → Core</td></tr>
+            <tr><td class="limited">Limited</td><td>VLANs 71, 73, 74</td><td>AdGuard (70)</td><td>DNS only</td></tr>
+            <tr><td class="limited">Limited</td><td>Media (71)</td><td>Traefik · core VM (70)</td><td>Immich OIDC to Authentik</td></tr>
+            <tr><td class="limited">Limited</td><td>Sec Services (2)</td><td>Traefik · core VM (70)</td><td>Wazuh alert webhook</td></tr>
+
+            <tr class="group-row"><td colspan="4">Containment</td></tr>
+            <tr><td class="no">Drop</td><td>Each homelab VLAN</td><td>RFC1918</td><td>Default-deny catch-all</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="flow-note">Allow = permitted · Limited = specific host and service · Drop = blocked. No WAN port-forwards point at any service VLAN. Camera VLAN 74 rules are on the <a href="index.html#firewall">SOC page</a>.</p>
+    </section>
+
+    <section id="flows" aria-labelledby="flows-title">
+      <div class="section-head">
+        <h2 id="flows-title">Operational flows</h2>
+        <span class="aside">How day-to-day use works</span>
+      </div>
+      <div class="flows">
+        <article class="flow">
+          <h3><span class="flow-num">1</span> Remote access (WireGuard)</h3>
+          <div class="pipeline">
+            <span class="node edge">Phone / laptop</span><span class="arrow">→</span>
+            <span class="node edge">Home edge gateway</span><span class="arrow">→</span>
+            <span class="node edge">Lab gateway forward</span><span class="arrow">→</span>
+            <span class="node core">WireGuard LXC (VLAN 70)</span><span class="arrow">→</span>
+            <span class="node core">Peer IP on VLAN 75</span><span class="arrow">→</span>
+            <span class="node core">AdGuard → Traefik → Authentik</span>
+          </div>
+          <p class="flow-note">Split tunnel to lab subnets with AdGuard as DNS, so lab hostnames work anywhere.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">2</span> Opening any web app</h3>
+          <div class="pipeline">
+            <span class="node edge">Browser</span><span class="arrow">→</span>
+            <span class="node core">AdGuard: lab hostname → Traefik</span><span class="arrow">→</span>
+            <span class="node core">Traefik (TLS)</span><span class="arrow">→</span>
+            <span class="node core">Authentik forward-auth / OIDC</span><span class="arrow">→</span>
+            <span class="node media">App on its own VLAN</span>
+          </div>
+          <p class="flow-note">Jellyfin keeps its own user accounts for TV clients; Immich signs in through Authentik OIDC.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">3</span> Friends join a game server</h3>
+          <div class="pipeline">
+            <span class="node gaming">Friend's PC</span><span class="arrow">→</span>
+            <span class="node core">WireGuard peer</span><span class="arrow">→</span>
+            <span class="node edge">Lab gateway allow</span><span class="arrow">→</span>
+            <span class="node gaming">Game server (VLAN 73)</span>
+          </div>
+          <p class="flow-note">The dashboard's Gaming tab shows who is online and can switch or back up worlds without SSH.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">4</span> Talking to Dot</h3>
+          <div class="pipeline">
+            <span class="node core">Lab Dash mic (browser)</span><span class="arrow">→</span>
+            <span class="node dot">“Dot …” wake: VAD + Whisper</span><span class="arrow">→</span>
+            <span class="node dot">Skill or local LLM</span><span class="arrow">→</span>
+            <span class="node core">Read-only ops API (lab data)</span><span class="arrow">→</span>
+            <span class="node dot">XTTS voice reply</span>
+          </div>
+          <p class="flow-note">After the first “Dot”, follow-ups don't need the wake word until 60 seconds of silence.</p>
+        </article>
+
+        <article class="flow">
+          <h3><span class="flow-num">5</span> Security alerts → voice</h3>
+          <div class="pipeline">
+            <span class="node soc">Wazuh manager (SOC VLAN 2)</span><span class="arrow">→</span>
+            <span class="node core">Ops dashboard webhook + ntfy</span><span class="arrow">→</span>
+            <span class="node dot">Dot speaks “high” alerts</span>
+          </div>
+          <div class="pipeline" style="margin-top:0.45rem">
+            <span class="node soc">Frigate person event (SOC host, VLAN 74)</span><span class="arrow">→</span>
+            <span class="node dot">MQTT forwarder on the AI box</span><span class="arrow">→</span>
+            <span class="node dot">Dot announces known person or stranger</span>
+          </div>
+          <p class="flow-note">Clicking a Wazuh alert opens the exact Discover document. Camera pipeline details are on the <a href="index.html#cameras">SOC page</a>.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="outcomes" aria-labelledby="outcomes-title">
+      <div class="section-head">
+        <h2 id="outcomes-title">Portfolio outcomes</h2>
+        <span class="aside">What this page shows</span>
+      </div>
+      <div class="outcomes">
+        <article class="outcome">
+          <h3>Segmented self-hosting</h3>
+          <p>Five guests across three service VLANs, a dedicated AI VLAN, and a VPN client zone, each with a default-deny policy and host-specific allow rules.</p>
+        </article>
+        <article class="outcome">
+          <h3>Identity and remote access</h3>
+          <p>One Traefik entry point, Authentik forward-auth and OIDC, AdGuard split DNS, and WireGuard as the only way in.</p>
+        </article>
+        <article class="outcome">
+          <h3>Full-stack ops tooling</h3>
+          <p>A custom FastAPI + React dashboard integrating Proxmox, Portainer, Wazuh, Frigate, ntfy, and Dot.</p>
+          <p class="maps"><a href="stacks/vm-ops/">Project →</a></p>
+        </article>
+        <article class="outcome">
+          <h3>Self-hosted AI assistant</h3>
+          <p>Dot: wake-word voice, a local LLM with persistent memory, a cloned voice, read-only lab skills, and spoken SOC and camera alerts, all on one GPU PC with no cloud APIs. Designed with Cursor's assistance.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <strong>Homelab Portfolio — Services Proxmox Architecture</strong><br />
+        Companions: <a href="network.html">Network &amp; Hardware</a> · <a href="index.html">Cybersecurity Lab Architecture</a>
+      </div>
+      <div>
+        Services Proxmox · Core · Media · Gaming · VPN · Dot AI
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
