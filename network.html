@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Homelab Network &amp; Hardware | Portfolio</title>
+  <meta name="description" content="As-built network and hardware for my homelab: home edge gateway and a lab gateway routing 12 VLANs, two Proxmox hosts, and a GPU PC for a local AI assistant."  />
+  <meta name="author" content="Jonah Caro" />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#0b1220" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Homelab Network &amp; Hardware" />
+  <meta property="og:description" content="Home edge → lab gateway (12 VLANs) → InfoSec Proxmox, Services Proxmox, and a Dot AI GPU PC. Zone firewall, WireGuard-only remote access." />
+  <meta property="og:locale" content="en_US" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Homelab Network &amp; Hardware" />
+  <meta name="twitter:description" content="The lab network, VLANs, trust zones, and hardware behind my SOC lab, homelab services, and Dot AI." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --bg-elevated: #ffffff;
+      --ink: #0f172a;
+      --ink-secondary: #334155;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --line-strong: #cbd5e1;
+      --accent: #0f766e;
+      --accent-soft: #ccfbf1;
+      --accent-ink: #115e59;
+      --mgmt: #0369a1;
+      --services: #0f766e;
+      --dot: #b45309;
+      --targets: #b91c1c;
+      --malware: #7e22ce;
+      --attack: #c2410c;
+      --home: #4f46e5;
+      --cams: #be185d;
+      --edge: #0e7490;
+      --radius: 10px;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+      --max: 1080px;
+      --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent-ink); }
+    a:hover { text-decoration: underline; }
+
+    .skip {
+      position: absolute;
+      left: -999px;
+      top: 0;
+      background: var(--ink);
+      color: #fff;
+      padding: 0.5rem 1rem;
+      z-index: 100;
+    }
+    .skip:focus { left: 0; }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: #f1f5f9;
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      color: var(--ink);
+    }
+
+    /* —— Site chrome —— */
+    .topbar {
+      background: #0b1220;
+      color: #e2e8f0;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .topbar-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-kicker {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+
+    .brand-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .top-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+      list-style: none;
+      font-size: 0.82rem;
+    }
+
+    .top-nav a {
+      color: #cbd5e1;
+      text-decoration: none;
+    }
+
+    .top-nav a:hover { color: #fff; }
+
+    .top-nav a.peer {
+      color: #7dd3fc;
+      font-weight: 500;
+    }
+
+    /* —— Hero —— */
+    .hero {
+      background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
+      color: #e2e8f0;
+      padding: 2.75rem 1.5rem 3rem;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .hero-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #5eead4;
+      margin-bottom: 1rem;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2dd4bf;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.75rem, 3.5vw, 2.35rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      color: #f8fafc;
+      max-width: 20ch;
+      margin-bottom: 0.85rem;
+    }
+
+    .hero-lead {
+      font-size: 1.05rem;
+      color: #94a3b8;
+      max-width: 42rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .chip {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .objectives {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
+    }
+
+    @media (max-width: 800px) {
+      .objectives { grid-template-columns: 1fr; }
+    }
+
+    .objective {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid #1e293b;
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+    }
+
+    .objective h2 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 0.35rem;
+    }
+
+    .objective p {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin: 0;
+    }
+
+    /* —— Main —— */
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    section { margin-bottom: 2.75rem; }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head h2 {
+      font-size: 1.2rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .section-head .aside {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .prose {
+      color: var(--ink-secondary);
+      font-size: 0.95rem;
+      max-width: 46rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .skill-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .skill {
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 0.35rem 0.7rem;
+      border-radius: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      color: var(--ink-secondary);
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+    }
+
+    /* Diagrams */
+    .diagram-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+
+    .diagram-card figcaption {
+      padding: 0.85rem 1.15rem;
+      border-top: 1px solid var(--line);
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: #f8fafc;
+    }
+
+    .diagram-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #fafbfc;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1.15rem;
+      margin: 1rem 0 1.25rem;
+      padding: 0.85rem 1rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .swatch {
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* VLAN cards */
+    .vlan-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    @media (max-width: 760px) {
+      .vlan-grid { grid-template-columns: 1fr; }
+    }
+
+    .vlan {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .vlan-header {
+      padding: 0.8rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .vlan-header h3 {
+      font-size: 0.95rem;
+      font-weight: 650;
+    }
+
+    .vlan-id {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .vlan-body { padding: 0.9rem 1rem 1.05rem; flex: 1; }
+
+    .vlan-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .svc-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .svc {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      padding: 0.5rem 0.6rem;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-left-width: 3px;
+    }
+
+    .svc-name {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--ink);
+      display: block;
+    }
+
+    .svc-how {
+      font-size: 0.74rem;
+      color: var(--muted);
+      display: block;
+      margin-top: 0.1rem;
+    }
+
+    .deploy {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      white-space: nowrap;
+      padding-top: 0.2rem;
+    }
+
+    .vlan-mgmt .vlan-header { background: #f0f9ff; color: var(--mgmt); }
+    .vlan-mgmt .svc { border-left-color: var(--mgmt); }
+
+    .vlan-services .vlan-header { background: #f0fdfa; color: var(--services); }
+    .vlan-services .svc { border-left-color: var(--services); }
+
+    .vlan-dot .vlan-header { background: #fffbeb; color: var(--dot); }
+    .vlan-dot .svc { border-left-color: var(--dot); }
+
+    .vlan-targets .vlan-header { background: #fef2f2; color: var(--targets); }
+    .vlan-targets .svc { border-left-color: var(--targets); }
+
+    .vlan-malware .vlan-header { background: #faf5ff; color: var(--malware); }
+    .vlan-malware .svc { border-left-color: var(--malware); }
+
+    .vlan-attack .vlan-header { background: #fff7ed; color: var(--attack); }
+    .vlan-attack .svc { border-left-color: var(--attack); }
+
+    .vlan-cams .vlan-header { background: #fdf2f8; color: var(--cams); }
+    .vlan-cams .svc { border-left-color: var(--cams); }
+
+    /* Split cards */
+    .split-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 700px) {
+      .split-2 { grid-template-columns: 1fr; }
+    }
+
+    .info-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.1rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .info-card .label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--edge);
+      margin-bottom: 0.4rem;
+    }
+
+    .info-card h3 {
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .info-card p {
+      font-size: 0.84rem;
+      color: var(--ink-secondary);
+    }
+
+    .callout {
+      background: var(--accent-soft);
+      border: 1px solid #99f6e4;
+      border-radius: 12px;
+      padding: 1rem 1.15rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .callout h3 {
+      font-size: 0.88rem;
+      color: var(--accent-ink);
+      margin-bottom: 0.4rem;
+    }
+
+    .callout p {
+      font-size: 0.84rem;
+      color: var(--ink-secondary);
+    }
+
+    .callout p + p { margin-top: 0.45rem; }
+
+    .callout strong { color: var(--ink); }
+
+    /* Hosts */
+    .hosts {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .host {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .host h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .host .meta {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-bottom: 0.7rem;
+    }
+
+    .host ul {
+      list-style: none;
+      font-size: 0.8rem;
+      color: var(--ink-secondary);
+    }
+
+    .host li {
+      padding: 0.22rem 0 0.22rem 0.85rem;
+      position: relative;
+    }
+
+    .host li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55rem;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* Flows */
+    .flows { display: flex; flex-direction: column; gap: 0.85rem; }
+
+    .flow {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.05rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .flow h3 {
+      font-size: 0.92rem;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-bottom: 0.7rem;
+    }
+
+    .flow-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.45rem;
+      height: 1.45rem;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .pipeline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .node {
+      font-size: 0.76rem;
+      font-weight: 500;
+      padding: 0.38rem 0.6rem;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid var(--line-strong);
+      color: var(--ink);
+    }
+
+    .node.mgmt { border-color: #7dd3fc; background: #f0f9ff; color: var(--mgmt); }
+    .node.services { border-color: #5eead4; background: #f0fdfa; color: var(--services); }
+    .node.dot { border-color: #fcd34d; background: #fffbeb; color: var(--dot); }
+    .node.targets { border-color: #fca5a5; background: #fef2f2; color: var(--targets); }
+    .node.malware { border-color: #d8b4fe; background: #faf5ff; color: var(--malware); }
+    .node.attack { border-color: #fdba74; background: #fff7ed; color: var(--attack); }
+    .node.home { border-color: #a5b4fc; background: #eef2ff; color: var(--home); }
+    .node.cams { border-color: #f9a8d4; background: #fdf2f8; color: var(--cams); }
+    .node.edge { border-color: #67e8f9; background: #ecfeff; color: var(--edge); }
+
+    .arrow {
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 0 0.1rem;
+      user-select: none;
+    }
+
+    .flow-note {
+      margin-top: 0.65rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* Tables */
+    .matrix-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--bg-elevated);
+      box-shadow: var(--shadow);
+      margin-bottom: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      min-width: 680px;
+    }
+
+    th, td {
+      padding: 0.6rem 0.7rem;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    th {
+      background: #f8fafc;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    td { color: var(--ink-secondary); }
+    td.mono, .mono { font-family: var(--mono); font-size: 0.74rem; }
+    td.num { font-family: var(--mono); font-weight: 600; color: var(--ink); white-space: nowrap; }
+
+    .yes { color: var(--services); font-weight: 650; }
+    .no { color: #94a3b8; font-weight: 600; }
+    .limited { color: var(--dot); font-weight: 600; }
+
+    .tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.12rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid var(--line-strong);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .tag.soc { border-color: #5eead4; color: var(--services); background: #f0fdfa; }
+    .tag.homelab { border-color: #a5b4fc; color: var(--home); background: #eef2ff; }
+    .tag.shared { border-color: #7dd3fc; color: var(--mgmt); background: #f0f9ff; }
+
+    .row-dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 0.45rem; vertical-align: 0; }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 800px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .stat {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.95rem 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .stat .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--accent-ink);
+      line-height: 1.1;
+    }
+
+    .stat .label {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    /* Outcomes */
+    .outcomes {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+    }
+
+    @media (max-width: 700px) {
+      .outcomes { grid-template-columns: 1fr; }
+    }
+
+    .outcome {
+      background: var(--bg-elevated);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.05rem 1.15rem;
+      box-shadow: var(--shadow);
+    }
+
+    .outcome h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .outcome p {
+      font-size: 0.82rem;
+      color: var(--ink-secondary);
+    }
+
+    .outcome .maps {
+      margin-top: 0.65rem;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--accent-ink);
+    }
+
+    .status {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      margin-left: 0.35rem;
+      vertical-align: 0.1rem;
+    }
+
+    .status.done { background: #dcfce7; color: #166534; }
+    .status.wip { background: #fef3c7; color: #92400e; }
+
+    /* Footer */
+    footer {
+      background: #0b1220;
+      color: #94a3b8;
+      padding: 2rem 1.5rem;
+      border-top: 1px solid #1e293b;
+    }
+
+    .footer-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.8rem;
+    }
+
+    footer strong { color: #e2e8f0; font-weight: 600; }
+    footer a { color: #7dd3fc; }
+
+    @media print {
+      .topbar, .skip { display: none; }
+      body { background: #fff; font-size: 11pt; }
+      .hero {
+        background: #fff !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000;
+        padding: 1rem 0;
+      }
+      .hero h1, .hero-lead, .objective h2, .objective p, .eyebrow { color: #000 !important; }
+      .chip { border-color: #999; color: #333; background: #fff; }
+      .objective { border-color: #ccc; background: #fff; }
+      .diagram-card, .vlan, .flow, .host, .info-card, .outcome, .matrix-wrap, .stat {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+      a { color: #000; text-decoration: none; }
+      footer { background: #fff; color: #333; border-top: 1px solid #ccc; }
+    }
+    td.strong { font-weight: 600; color: var(--ink); }
+    .hosts + .matrix-wrap, .split-2 + .matrix-wrap { margin-top: 1rem; }
+    .objective a { color: #5eead4; }
+  </style>
+</head>
+
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" id="top">
+        <span class="brand-kicker">Homelab Portfolio</span>
+        <span class="brand-name">Network &amp; Hardware</span>
+      </a>
+      <nav aria-label="Page sections">
+        <ul class="top-nav">
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#topology">Topology</a></li>
+          <li><a href="#hardware">Hardware</a></li>
+          <li><a href="#vlans">VLANs</a></li>
+          <li><a href="#zones">Trust zones</a></li>
+          <li><a href="#explore">Explore</a></li>
+          <li><a class="peer" href="index.html">Cybersecurity lab →</a></li>
+          <li><a class="peer" href="homelab.html">Homelab services →</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Proxmox VE · 12 VLANs · GPU passthrough</p>
+      <h1>Homelab Network &amp; Hardware</h1>
+      <p class="hero-lead">
+        The physical network and the machines behind my entire homelab. One private network carries three
+        workloads: a cybersecurity lab, everyday self-hosted services, and Dot AI, a local voice assistant.
+        A lab gateway routes and firewalls 12 VLANs, and three machines I built do the compute: two Proxmox hosts
+        and a dedicated GPU PC for AI.
+      </p>
+      <div class="meta-row" aria-label="Network summary">
+        <span class="chip">Home edge gateway</span>
+        <span class="chip">Lab gateway · zone firewall</span>
+        <span class="chip">Layer-2 switching</span>
+        <span class="chip">12 VLANs</span>
+        <span class="chip">2 Proxmox hosts + AI PC</span>
+        <span class="chip">Remote access: WireGuard only</span>
+      </div>
+      <div class="objectives">
+        <div class="objective">
+          <h2>Cybersecurity lab</h2>
+          <p>SIEM, network sensors, targets, a malware sandbox, and a GPU camera NVR on the InfoSec Proxmox host. <a href="index.html">Architecture →</a></p>
+        </div>
+        <div class="objective">
+          <h2>Homelab services</h2>
+          <p>Core platform, media, gaming, and my ops dashboard on the Services Proxmox host. <a href="homelab.html">Architecture →</a></p>
+        </div>
+        <div class="objective">
+          <h2>Dot AI</h2>
+          <p>A fully local voice assistant on its own GPU PC, designed with Cursor's assistance and embedded in the ops dashboard. <a href="homelab.html#dot">Details →</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main id="main">
+    <section id="overview" aria-labelledby="overview-title">
+      <div class="section-head">
+        <h2 id="overview-title">How it fits together</h2>
+        <span class="aside">One fabric, separate trust zones</span>
+      </div>
+      <p class="prose">
+        Everything on this page is built and running. The home internet edge and the lab are deliberately separate:
+        the home edge gateway serves personal devices, and a downstream lab gateway owns every lab network, its DHCP, inter-VLAN
+        routing, and the zone firewall. Each workload gets its own VLAN, traffic between VLANs is denied unless a rule
+        allows it, and the only way in from the internet is WireGuard. The pages for the
+        <a href="index.html">cybersecurity lab</a> and <a href="homelab.html">homelab services</a> cover what runs on
+        each network; this page covers the network and hardware underneath them.
+      </p>
+      <div class="skill-grid" aria-label="Skills">
+        <span class="skill">Enterprise network design</span>
+        <span class="skill">VLAN segmentation (12 networks)</span>
+        <span class="skill">802.1Q trunking</span>
+        <span class="skill">Zone-based firewall</span>
+        <span class="skill">Proxmox VE (2 hosts)</span>
+        <span class="skill">GPU passthrough (VFIO)</span>
+        <span class="skill">Linux tc traffic mirroring</span>
+        <span class="skill">WireGuard remote access</span>
+        <span class="skill">Split DNS (AdGuard Home)</span>
+        <span class="skill">PC building · hardware sizing</span>
+      </div>
+    </section>
+
+    <section id="topology" aria-labelledby="topology-title">
+      <div class="section-head">
+        <h2 id="topology-title">Physical network topology</h2>
+        <span class="aside">As built</span>
+      </div>
+      <p class="prose">
+        The ISP fiber gateway passes the public IP to the home edge gateway, which runs the home LAN for
+        personal devices. The lab gateway takes a WAN address on that LAN and is the gateway for every lab, homelab, and AI
+        VLAN. Inter-VLAN routing and firewalling stay on the lab gateway, so the home edge gateway only handles north–south traffic.
+      </p>
+
+      <figure class="diagram-card">
+        <svg class="diagram-svg" viewBox="0 0 1000 470" role="img" aria-labelledby="hw-title hw-desc">
+          <title id="hw-title">Physical hardware topology</title>
+          <desc id="hw-desc">
+            ISP fiber in IP passthrough to the home edge gateway, then a home LAN switch serving the home LAN and the lab gateway.
+            The lab gateway routes 12 VLANs to a lab switch that connects the InfoSec Proxmox host (SOC VLANs plus the camera NVR on VLAN 74),
+            the Homelab Proxmox host, the Dot AI box, the admin PC, and IoT and camera Wi-Fi.
+          </desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+            </marker>
+          </defs>
+
+          <rect x="380" y="12" width="240" height="44" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+          <text x="500" y="30" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">ISP Fiber Gateway</text>
+          <text x="500" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">IP passthrough</text>
+
+          <line x1="500" y1="56" x2="500" y2="78" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="330" y="78" width="340" height="52" rx="8" fill="#ecfeff" stroke="#0e7490" stroke-width="1.5"/>
+          <text x="500" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="#0e7490">Home Edge Gateway</text>
+          <text x="500" y="118" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">Public IP · home LAN</text>
+
+          <line x1="500" y1="130" x2="500" y2="152" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="350" y="152" width="300" height="40" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+          <text x="500" y="177" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Home LAN Switch</text>
+
+          <line x1="420" y1="192" x2="230" y2="222" stroke="#94a3b8" stroke-width="1.25" marker-end="url(#arrow)"/>
+          <line x1="580" y1="192" x2="760" y2="222" stroke="#94a3b8" stroke-width="1.25" marker-end="url(#arrow)"/>
+
+          <rect x="90" y="222" width="280" height="52" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+          <text x="230" y="244" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">Home LAN clients</text>
+          <text x="230" y="260" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">Personal devices</text>
+
+          <rect x="600" y="222" width="320" height="52" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="2"/>
+          <text x="760" y="244" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="#0f766e">Lab Gateway</text>
+          <text x="760" y="262" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#64748b">12 VLANs · zone firewall</text>
+
+          <line x1="760" y1="274" x2="760" y2="298" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="560" y="298" width="400" height="38" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="1.5"/>
+          <text x="760" y="322" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#b45309">Lab Switch · VLAN trunks</text>
+
+          <line x1="760" y1="336" x2="760" y2="356" stroke="#94a3b8" stroke-width="1.25"/>
+          <line x1="100" y1="356" x2="900" y2="356" stroke="#cbd5e1" stroke-width="1.5"/>
+          <line x1="100" y1="356" x2="100" y2="372" stroke="#94a3b8" stroke-width="1.25"/>
+          <line x1="300" y1="356" x2="300" y2="372" stroke="#94a3b8" stroke-width="1.25"/>
+          <line x1="500" y1="356" x2="500" y2="372" stroke="#94a3b8" stroke-width="1.25"/>
+          <line x1="700" y1="356" x2="700" y2="372" stroke="#94a3b8" stroke-width="1.25"/>
+          <line x1="900" y1="356" x2="900" y2="372" stroke="#94a3b8" stroke-width="1.25"/>
+
+          <rect x="12" y="372" width="176" height="78" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="2"/>
+          <text x="100" y="394" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f766e">InfoSec Proxmox</text>
+          <text x="100" y="411" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">SOC + cameras</text>
+          <text x="100" y="427" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">VLANs 2 · 4 · 5 · 6 · 74</text>
+
+          <rect x="212" y="372" width="176" height="78" rx="8" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.5"/>
+          <text x="300" y="394" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#4f46e5">Homelab Proxmox</text>
+          <text x="300" y="411" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">Homelab services</text>
+          <text x="300" y="427" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">VLANs 70 · 71 · 73</text>
+
+          <rect x="412" y="372" width="176" height="78" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="1.5"/>
+          <text x="500" y="394" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#b45309">Dot AI box</text>
+          <text x="500" y="411" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">VLAN 3</text>
+          <text x="500" y="427" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">AI · voice assistant</text>
+
+          <rect x="612" y="372" width="176" height="78" rx="8" fill="#f0f9ff" stroke="#0369a1" stroke-width="1.5"/>
+          <text x="700" y="394" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0369a1">Admin PC</text>
+          <text x="700" y="411" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">Mgmt VLAN 1</text>
+          <text x="700" y="427" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">2nd NIC → Kali (VLAN 6)</text>
+
+          <rect x="812" y="372" width="176" height="78" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+          <text x="900" y="394" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#0f172a">IoT &amp; cameras</text>
+          <text x="900" y="411" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">IoT VLAN 8</text>
+          <text x="900" y="427" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="#64748b">Camera Wi-Fi · VLAN 74</text>
+        </svg>
+        <figcaption>
+          The home edge gateway serves personal devices and forwards only WireGuard to the lab gateway. Every lab,
+          homelab, and AI subnet sits behind the lab gateway, which trunks VLANs to both Proxmox hosts through the lab switch.
+        </figcaption>
+      </figure>
+
+      <div class="split-2">
+        <div class="info-card">
+          <div class="label">Home edge</div>
+          <h3>Home edge gateway</h3>
+          <p>
+            Takes the ISP public IP via passthrough and serves the home LAN for personal devices.
+            Forwards WireGuard to the lab gateway and otherwise does not see lab east–west traffic.
+          </p>
+        </div>
+        <div class="info-card">
+          <div class="label">Lab gateway</div>
+          <h3>Lab gateway</h3>
+          <p>
+            Gateway for all 12 VLANs: DHCP, inter-VLAN routing, and the zone-based firewall policy table.
+            VLAN trunks go to both Proxmox hosts through the lab switch.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="hardware" aria-labelledby="hardware-title">
+      <div class="section-head">
+        <h2 id="hardware-title">Hardware</h2>
+        <span class="aside">What runs it all</span>
+      </div>
+      <p class="prose">
+        Three machines do the compute, each sized for its job. The InfoSec host has the most memory because the SIEM,
+        Elasticsearch, and the analysis VMs are the heaviest workloads. The services host runs lighter containers but
+        holds the media pool. AI inference runs on its own PC so voice and language models never compete with the SOC
+        for GPU or RAM.
+      </p>
+
+      <div class="hosts">
+        <div class="host">
+          <h3>InfoSec Proxmox</h3>
+          <p class="meta">SOC host · Management VLAN</p>
+          <ul>
+            <li>AMD Ryzen 9 5900XT</li>
+            <li>64 GB RAM</li>
+            <li>NVIDIA Quadro P400, passed through (VFIO) to the camera NVR</li>
+            <li>VLAN-aware bridge trunking VLANs 2, 4, 5, 6, 74</li>
+            <li><code>tc</code> traffic mirror to the network sensor</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Services Proxmox</h3>
+          <p class="meta">Homelab host · Management VLAN</p>
+          <ul>
+            <li>32 GB RAM</li>
+            <li>Pool A: VM disks, databases, containers</li>
+            <li>Pool B: 1 TB media disk shared to guests with VirtioFS</li>
+            <li>VLAN-aware bridge trunking VLANs 70, 71, 73</li>
+            <li>Mix of LXCs and Docker VMs</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Dot AI PC</h3>
+          <p class="meta">AI host · VLAN 3</p>
+          <ul>
+            <li>AMD Ryzen 9 3900XT</li>
+            <li>NVIDIA RTX 2080 SUPER</li>
+            <li>16 GB DDR4</li>
+            <li>4 TB HDD</li>
+            <li>Ubuntu, bare metal (no hypervisor)</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Admin PC</h3>
+          <p class="meta">Management VLAN 1</p>
+          <ul>
+            <li>Hypervisor and lab administration</li>
+            <li>Dedicated 2nd NIC bridged to Kali on VLAN 6</li>
+            <li>Kali NIC isolated from the host OS</li>
+            <li>Sample staging for the malware sandbox</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Lab network</h3>
+          <p class="meta">Routing · switching</p>
+          <ul>
+            <li>Home edge gateway</li>
+            <li>Home LAN switch</li>
+            <li>Lab gateway + zone firewall</li>
+            <li>Lab access switch (VLAN trunks to hosts)</li>
+          </ul>
+        </div>
+        <div class="host">
+          <h3>Edge devices</h3>
+          <p class="meta">Untrusted VLANs 8 · 74</p>
+          <ul>
+            <li>Battery-powered Wi-Fi cameras</li>
+            <li>Smart-home IoT devices</li>
+            <li>Each on its own SSID and VLAN</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="matrix-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Machine</th>
+              <th>Runs</th>
+              <th>VLANs</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="strong">InfoSec Proxmox</td><td>Wazuh + ELK, NSM sensor, DVWA and Metasploitable, REMnux and FlareVM, Frigate camera NVR</td><td class="mono">2 · 4 · 5 · 6 · 74</td><td><a href="index.html">Cybersecurity lab</a></td></tr>
+            <tr><td class="strong">Services Proxmox</td><td>AdGuard, WireGuard, Traefik, Authentik, ops dashboard, Jellyfin, Immich, game servers</td><td class="mono">70 · 71 · 73</td><td><a href="homelab.html">Homelab services</a></td></tr>
+            <tr><td class="strong">Dot AI PC</td><td>Dot AI: Whisper, Ollama, XTTS / Piper, camera-event forwarder</td><td class="mono">3</td><td><a href="homelab.html#dot">Dot AI</a></td></tr>
+            <tr><td class="strong">Admin PC</td><td>Admin UIs, Kali VM, ops local agent</td><td class="mono">1 · 6</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="vlans" aria-labelledby="vlans-title">
+      <div class="section-head">
+        <h2 id="vlans-title">VLAN inventory</h2>
+        <span class="aside">Configured on the lab gateway</span>
+      </div>
+      <p class="prose">
+        All 12 networks are live on the lab gateway. Each VLAN has its own subnet with the lab gateway as the gateway, and the
+        addressing follows the VLAN number, so an address alone tells you which zone a device is in. VLAN 75 has no guests; it is the
+        address pool for WireGuard clients, so the firewall can treat remote users as their own zone.
+      </p>
+
+      <div class="matrix-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>VLAN</th>
+              <th>Network</th>
+              <th>Hosted on</th>
+              <th>What lives there</th>
+              <th>Area</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="num">1</td><td><span class="row-dot" style="background:var(--mgmt)"></span>Management</td><td>Both hosts · admin PC</td><td>Proxmox management, admin workstation</td><td><span class="tag shared">Shared</span></td></tr>
+            <tr><td class="num">2</td><td><span class="row-dot" style="background:var(--services)"></span>Sec Services</td><td>InfoSec Proxmox</td><td>Wazuh, ELK, OpenVAS, DefectDojo</td><td><span class="tag soc">SOC</span></td></tr>
+            <tr><td class="num">3</td><td><span class="row-dot" style="background:var(--dot)"></span>DOT AI</td><td>Dot AI PC</td><td>Dot AI voice assistant</td><td><span class="tag homelab">Homelab · AI</span></td></tr>
+            <tr><td class="num">4</td><td><span class="row-dot" style="background:var(--targets)"></span>Targets</td><td>InfoSec Proxmox</td><td>DVWA, Metasploitable</td><td><span class="tag soc">SOC</span></td></tr>
+            <tr><td class="num">5</td><td><span class="row-dot" style="background:var(--malware)"></span>Malware</td><td>InfoSec Proxmox</td><td>REMnux, FlareVM — no route out</td><td><span class="tag soc">SOC</span></td></tr>
+            <tr><td class="num">6</td><td><span class="row-dot" style="background:var(--attack)"></span>Attack</td><td>InfoSec Proxmox · admin PC</td><td>Kali, NSM sensor</td><td><span class="tag soc">SOC</span></td></tr>
+            <tr><td class="num">8</td><td><span class="row-dot" style="background:#4d7c0f"></span>IoT</td><td>Wi-Fi</td><td>Smart-home devices</td><td><span class="tag homelab">Homelab</span></td></tr>
+            <tr><td class="num">70</td><td><span class="row-dot" style="background:#6d28d9"></span>Home Core Services</td><td>Services Proxmox</td><td>AdGuard, WireGuard, Traefik, Authentik, ops dashboard</td><td><span class="tag homelab">Homelab</span></td></tr>
+            <tr><td class="num">71</td><td><span class="row-dot" style="background:#0f766e"></span>Media</td><td>Services Proxmox</td><td>Jellyfin, Immich</td><td><span class="tag homelab">Homelab</span></td></tr>
+            <tr><td class="num">73</td><td><span class="row-dot" style="background:#b45309"></span>Gaming</td><td>Services Proxmox</td><td>Minecraft (Paper), Valheim</td><td><span class="tag homelab">Homelab</span></td></tr>
+            <tr><td class="num">74</td><td><span class="row-dot" style="background:var(--cams)"></span>Security Cameras</td><td>InfoSec Proxmox · Wi-Fi</td><td>Frigate NVR VM, Wi-Fi cameras</td><td><span class="tag soc">SOC</span></td></tr>
+            <tr><td class="num">75</td><td><span class="row-dot" style="background:#0e7490"></span>VPN Network</td><td>—</td><td>WireGuard client addresses</td><td><span class="tag homelab">Homelab</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="zones" aria-labelledby="zones-title">
+      <div class="section-head">
+        <h2 id="zones-title">Trust zones &amp; cross-domain links</h2>
+        <span class="aside">Lab gateway zone firewall</span>
+      </div>
+      <p class="prose">
+        Every VLAN-to-VLAN path is denied by default. The table below lists the only paths allowed between the three
+        areas; detailed rule sets for each area are on the
+        <a href="index.html#firewall">cybersecurity</a> and <a href="homelab.html#firewall">homelab</a> pages.
+      </p>
+
+      <div class="split-2">
+        <div class="info-card">
+          <div class="label">Inbound from the internet</div>
+          <h3>WireGuard is the only way in</h3>
+          <p>
+            The home edge gateway forwards WireGuard to the lab gateway, which forwards it to the WireGuard LXC on VLAN 70. No
+            service, camera, or game server has a public port-forward; friends and my phone come in over the VPN.
+          </p>
+        </div>
+        <div class="info-card">
+          <div class="label">Outbound to the internet</div>
+          <h3>Decided per VLAN</h3>
+          <p>
+            The malware sandbox and cameras have no internet route at all. SOC services get only DNS and web access for
+            feed and image updates, and every other VLAN is limited to what its services need.
+          </p>
+        </div>
+      </div>
+
+      <div class="matrix-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Link</th>
+              <th>From</th>
+              <th>To</th>
+              
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>SOC alerts out</td><td>Sec Services (2)</td><td>Traefik · core VM (70)</td><td>Wazuh → ops dashboard webhook</td></tr>
+            <tr><td>SOC VM control</td><td>Home Core (70)</td><td>InfoSec Proxmox</td><td>Ops dashboard reads and powers SOC VMs</td></tr>
+            <tr><td>Spoken alerts</td><td>Home Core (70)</td><td>Dot AI PC</td><td>Ops dashboard pushes high-severity alerts to Dot</td></tr>
+            <tr><td>Lab data for Dot</td><td>DOT AI (3)</td><td>Traefik · core VM (70)</td><td>Dot reads the ops dashboard's read-only API</td></tr>
+            <tr><td>Camera events</td><td>DOT AI (3)</td><td>Camera NVR VM (74)</td><td>Frigate MQTT → Dot's camera forwarder</td></tr>
+            <tr><td>NVR web</td><td>Traefik (70)</td><td>Camera NVR VM (74)</td><td>Frigate UI and live tiles behind Authentik</td></tr>
+            <tr><td>DNS</td><td>VLANs 71, 73, 74</td><td>AdGuard (70)</td><td>AdGuard Home</td></tr>
+            <tr><td>Sandbox break-glass</td><td>Mgmt (1)</td><td>Malware (5)</td><td>Manual sample in, reports out — disabled when idle</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="flow-note">Management (VLAN 1) is the highest-trust zone; no lab, homelab, AI, or IoT VLAN may initiate connections into it.</p>
+    </section>
+
+    <section id="explore" aria-labelledby="explore-title">
+      <div class="section-head">
+        <h2 id="explore-title">Explore the lab</h2>
+        <span class="aside">Architecture deep-dives</span>
+      </div>
+      <div class="outcomes">
+        <article class="outcome">
+          <h3>Cybersecurity lab</h3>
+          <p>
+            Wazuh and ELK detection engineering, Zeek / Suricata / Snort on a mirrored trunk, vulnerability management
+            with OpenVAS and DefectDojo, an isolated malware sandbox, and an AI camera NVR.
+          </p>
+          <p class="maps"><a href="index.html">Cybersecurity architecture →</a></p>
+        </article>
+        <article class="outcome">
+          <h3>Homelab services</h3>
+          <p>
+            AdGuard, WireGuard, Traefik + Authentik, Jellyfin and Immich, game servers, and Lab Dash,
+            my custom ops dashboard.
+          </p>
+          <p class="maps"><a href="homelab.html">Homelab architecture →</a></p>
+        </article>
+        <article class="outcome">
+          <h3>Dot AI</h3>
+          <p>
+            A wake-word voice assistant with a local LLM, persistent memory, a cloned voice, read-only lab skills, and
+            spoken SOC and camera alerts. Designed with the assistance of Cursor.
+          </p>
+          <p class="maps"><a href="homelab.html#dot">Dot AI →</a></p>
+        </article>
+        <article class="outcome">
+          <h3>Segmented network design</h3>
+          <p>
+            A home edge gateway, a lab gateway routing 12 VLANs with a tested zone firewall, a host-level traffic mirror for
+            virtual targets, and WireGuard as the only inbound path.
+          </p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <strong>Homelab Portfolio — Network &amp; Hardware</strong><br />
+        Companions: <a href="index.html">Cybersecurity Lab Architecture</a> · <a href="homelab.html">Homelab Services Architecture</a>
+      </div>
+      <div>
+        Home edge → lab gateway → InfoSec Proxmox · Services Proxmox · Dot AI PC · 12 VLANs
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
